@@ -1,0 +1,9 @@
+{
+  "labels": [
+    {"name": "calm",      "prompt": "a tranquil, peaceful scene",         "def": "low motion, soft colors, quiet audio"},
+    {"name": "energetic", "prompt": "a high-energy lively scene",         "def": "fast motion, bright colors, loud/fast audio"},
+    {"name": "suspense",  "prompt": "a tense, foreboding scene",          "def": "dim colors, slow build, ominous drones"},
+    {"name": "joyful",    "prompt": "a happy, upbeat, celebratory scene", "def": "warm colors, smiles, upbeat music"},
+    {"name": "sad",       "prompt": "a somber, gloomy scene",             "def": "cool/dark tones, slow pace, quiet audio"}
+  ]
+}
