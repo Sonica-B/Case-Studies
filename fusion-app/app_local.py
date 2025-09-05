@@ -5,11 +5,11 @@ import numpy as np
 from pathlib import Path
 
 HERE = Path(__file__).parent
-lables_PATH = HERE / "lables.json"
+lables_PATH = HERE / "labels.json"
 
-lables = [x["name"] for x in json.loads(lables_PATH.read_text())["lables"]]
+lables = [x["name"] for x in json.loads(lables_PATH.read_text())["labels"]]
 
-# lables = [x ["name"] for x in json.load(Path("fusion-app/lables.json").read_text())["lables"]]
+# lables = [x ["name"] for x in json.load(Path("fusion-app/labels.json").read_text())["labels"]]
 
 def predict_vid(video):
     t0= time.time()
