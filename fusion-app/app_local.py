@@ -1,2 +1,43 @@
-import gradio as gr, json, time, numpy as np
+import gradio as gr
+import time
+import json
+import numpy as np
 from pathlib import Path
+
+lables = [x ["name"] for x in json.load(Path("labels.json").read_text())["labels"]]
+
+def predict_vid(video):
+    t0= time.time()
+    probs = np.ones(len(lables))/len(lables)
+    pred = lables[int(np.argmax(probs))]
+    lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "dummy"}
+    return pred, {k: float(v) for k,v in zip(lables, probs)}, lat
+
+def predict_aud(audio):
+    t0 = time.time()
+    probs = np.ones(len(lables)) / len(lables)
+    pred = lables[int(np.argmax(probs))]
+    lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "dummy"}
+    return pred, {k: float(v) for k,v in zip(lables, probs)}, lat
+
+
+with gr.Blocks(title="Scene Mood Detection") as demo:
+    gr.Markdown("# Scene Mood Classifier\nUpload a short **video** or an **image + audio** pair.")
+    with gr.Tab("Video"):
+        v = gr.Video(sources=["upload"], height=240)
+        btn_v = gr.Button("Analyze")
+        out_v1 = gr.Label(label="Prediction")
+        out_v2 = gr.JSON(label="Probabilities")
+        out_v3 = gr.JSON(label="Latency (ms)")
+        btn_v.click(predict_video, inputs=[v], outputs=[out_v1,out_v2,out_v3])
+    with gr.Tab("Image + Audio"):
+        img = gr.Image(type="pil", height=240)
+        aud = gr.Audio(sources=["upload"], type="filepath")
+        btn_ia = gr.Button("Analyze")
+        out_i1 = gr.Label(label="Prediction")
+        out_i2 = gr.JSON(label="Probabilities")
+        out_i3 = gr.JSON(label="Latency (ms)")
+        btn_ia.click(predict_image_audio, inputs=[img,aud], outputs=[out_i1,out_i2,out_i3])
+
+if __name__ == "__main__":
+    demo.launch()

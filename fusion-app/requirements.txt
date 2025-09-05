@@ -1,11 +1,11 @@
-gradio>=4
-transformers>=4.42
-torch>=2.2
+gradio
+transformers
+torch
 torchaudio
 torchvision
 pydub
 ffmpeg-python
 numpy
 pytest
-huggingface_hub>=0.23
-datasets>=2.16
+huggingface_hub
+datasets
