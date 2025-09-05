@@ -1,0 +1,40 @@
+name: SYNC with Hugging Face
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
+
+jobs:
+    sync:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Install Python deps
+              run: |
+                    python -m pip install --upgrade pip
+                    pip install huggingface_hub
+
+            - name: Upload folder to Spaces
+              env:
+                  HF_Token: ${{ secrets.HF_Token }}
+                  HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+              run: |
+                    python - <<'PY'
+                    import os
+                    from huggingface_hub import HfApi
+                    api = HfApi()
+                    api.upload_folder(
+                        folder_path=".",
+                        path_in_repo=".",
+                        repo_id=os.getenv("HF_SPACE_ID"),
+                        repo_type="space",
+                        token=os.getenv("HF_Token"),
+                        ignore_patterns=[".git/*", ".github/*", ".vscode/*", ".idea/*", "__pycache__/*"]
+                    )
+                    print("Upload complete.")
+                    PY
