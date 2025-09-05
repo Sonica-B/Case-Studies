@@ -4,7 +4,7 @@ import json
 import numpy as np
 from pathlib import Path
 
-lables = [x ["name"] for x in json.load(Path("labels.json").read_text())["labels"]]
+lables = [x ["name"] for x in json.load(Path("fusion-app/labels.json").read_text())["labels"]]
 
 def predict_vid(video):
     t0= time.time()
@@ -13,12 +13,12 @@ def predict_vid(video):
     lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "dummy"}
     return pred, {k: float(v) for k,v in zip(lables, probs)}, lat
 
-def predict_aud(audio):
+def predict_aud_img(audio, image):
     t0 = time.time()
-    probs = np.ones(len(lables)) / len(lables)
-    pred = lables[int(np.argmax(probs))]
+    probs = np.ones(len(LABELS)) / len(LABELS)
+    pred = LABELS[int(np.argmax(probs))]
     lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "dummy"}
-    return pred, {k: float(v) for k,v in zip(lables, probs)}, lat
+    return pred, {k: float(v) for k,v in zip(LABELS, probs)}, lat
 
 
 with gr.Blocks(title="Scene Mood Detection") as demo:
