@@ -4,8 +4,8 @@ import json
 import numpy as np
 from pathlib import Path
 
-# HERE = Path(__file__).parent
-lables_PATH = "fusion-app" / "lables.json"
+HERE = Path(__file__).parent
+lables_PATH = HERE / "lables.json"
 
 lables = [x["name"] for x in json.loads(lables_PATH.read_text())["lables"]]
 
