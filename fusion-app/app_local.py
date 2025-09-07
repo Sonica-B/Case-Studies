@@ -3,6 +3,7 @@ import time
 import json
 import numpy as np
 from pathlib import Path
+from utils_media import video_to_frame_audio,  load_audio_16k
 
 HERE = Path(__file__).parent
 lables_PATH = HERE / "labels.json"
@@ -13,16 +14,19 @@ lables = [x["name"] for x in json.loads(lables_PATH.read_text())["labels"]]
 
 def predict_vid(video):
     t0= time.time()
+    frame, audio16k = video_to_frame_audio(video)
     probs = np.ones(len(lables))/len(lables)
     pred = lables[int(np.argmax(probs))]
-    lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "dummy"}
+    lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "decoded media"}
     return pred, {k: float(v) for k,v in zip(lables, probs)}, lat
 
 def predict_aud_img(audio, image):
     t0 = time.time()
+    wave = load_audio_16k(audio)
+    frame = image
     probs = np.ones(len(lables)) / len(lables)
     pred = lables[int(np.argmax(probs))]
-    lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "dummy"}
+    lat = {"t_total_ms": int((time.time()-t0)*1000), "note": "loaded media"}
     return pred, {k: float(v) for k,v in zip(lables, probs)}, lat
 
 
