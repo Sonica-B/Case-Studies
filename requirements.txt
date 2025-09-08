@@ -9,4 +9,3 @@ numpy
 pytest
 huggingface_hub
 datasets
-ffmpeg
