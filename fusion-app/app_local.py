@@ -46,7 +46,7 @@ with gr.Blocks(title="Scene Mood Detection") as demo:
         out_i1 = gr.Label(label="Prediction")
         out_i2 = gr.JSON(label="Probabilities")
         out_i3 = gr.JSON(label="Latency (ms)")
-        btn_ia.click(predict_aud_img, inputs=[img,aud], outputs=[out_i1,out_i2,out_i3])
+        btn_ia.click(predict_aud_img, inputs=[aud,img], outputs=[out_i1,out_i2,out_i3])
 
 if __name__ == "__main__":
     demo.launch()
