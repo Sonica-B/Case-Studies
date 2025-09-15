@@ -19,10 +19,10 @@ jobs:
                     python -m pip install --upgrade pip
                     pip install huggingface_hub
 
-            - name: Upload folder to Spaces
+            - name: Upload folder to Local-Space
               env:
                   HF_Token: ${{ secrets.HF_Token }}
-                  HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+                  HF_LOCAL_SPACE_ID: ${{ secrets.HF_LOCAL_SPACE_ID }}
               run: |
                     python - <<'PY'
                     import os
@@ -31,10 +31,30 @@ jobs:
                     api.upload_folder(
                         folder_path=".",
                         path_in_repo=".",
-                        repo_id=os.getenv("HF_SPACE_ID"),
+                        repo_id=os.getenv("HF_LOCAL_SPACE_ID"),
                         repo_type="space",
                         token=os.getenv("HF_Token"),
                         ignore_patterns=[".git/*", ".github/*", ".vscode/*", ".idea/*", "__pycache__/*"]
                     )
-                    print("Upload complete.")
+                    print("Local upload complete.")
+                    PY
+
+            - name: Upload folder to API-Space
+              env:
+                  HF_Token: ${{ secrets.HF_Token }}
+                  HF_SPACE_ID: ${{ secrets.HF_API_SPACE_ID }}
+              run: |
+                    python - <<'PY'
+                    import os
+                    from huggingface_hub import HfApi
+                    api = HfApi()
+                    api.upload_folder(
+                        folder_path=".",
+                        path_in_repo=".",
+                        repo_id=os.getenv("HF_API_SPACE_ID"),
+                        repo_type="space",
+                        token=os.getenv("HF_Token"),
+                        ignore_patterns=[".git/*", ".github/*", ".vscode/*", ".idea/*", "__pycache__/*"]
+                    )
+                    print("API upload complete.")
                     PY

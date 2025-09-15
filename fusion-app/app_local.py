@@ -83,14 +83,19 @@ def predict_image_audio(image, audio_path, alpha=0.7):
 
 
 with gr.Blocks(title="Scene Mood Detection") as demo:
-    gr.Markdown("# Scene Mood Classifier\nUpload a short **video** or an **image + audio** pair.")
+    gr.Markdown("# Scene Mood Classifier - Local \nUpload a short **video** or an **image + audio** pair.")
     with gr.Tab("Video"):
         v = gr.Video(sources=["upload"], height=240)
+
+
+# Chat GPT : Create Gradio slider for alpha value with label "Fusion weight α (image ↔ audio)" and info "α=1 trusts image only; α=0 trusts audio only."
         alpha_v = gr.Slider(
         minimum=0.0, maximum=1.0, value=0.7, step=0.05,
         label="Fusion weight α (image ↔ audio)",
         info="α=1 trusts image only; α=0 trusts audio only."
        )
+        
+
         btn_v = gr.Button("Analyze")
         out_v1 = gr.Label(label="Prediction")
         out_v2 = gr.JSON(label="Probabilities")
@@ -100,11 +105,14 @@ with gr.Blocks(title="Scene Mood Detection") as demo:
     with gr.Tab("Image + Audio"):
         img = gr.Image(type="pil", height=240)
         aud = gr.Audio(sources=["upload"], type="filepath")
+
+# Chat GPT : Create Gradio slider for alpha value with label "Fusion weight α (image ↔ audio)" and info "α=1 trusts image only; α=0 trusts audio only."
         alpha_ia = gr.Slider(
         minimum=0.0, maximum=1.0, value=0.7, step=0.05,
         label="Fusion weight α (image ↔ audio)",
         info="α=1 trusts image only; α=0 trusts audio only."
         )
+
         btn_ia = gr.Button("Analyze")
         out_i1 = gr.Label(label="Prediction")
         out_i2 = gr.JSON(label="Probabilities")
