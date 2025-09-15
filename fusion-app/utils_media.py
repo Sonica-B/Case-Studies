@@ -1,7 +1,7 @@
 import csv
 import json
 from pathlib import Path
-from time import time
+import time
 from typing import Any, Dict, Tuple, Union
 import io
 import numpy as np

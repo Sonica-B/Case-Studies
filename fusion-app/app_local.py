@@ -2,7 +2,7 @@ import gradio as gr
 import json
 from pathlib import Path
 from utils_media import video_to_frame_audio, load_audio_16k, log_inference
-from fusion import clip_image_probs, wav2vec2_embed_energy, audio_prior_from_rms, fuse_probs, top1_label_from_probs
+from fusion import clip_image_probs, wav2vec2_embed_energy, wav2vec2_zero_shot_probs, audio_prior_from_rms, fuse_probs, top1_label_from_probs
 
 HERE = Path(__file__).parent
 lables_PATH = HERE / "labels.json"
@@ -58,8 +58,10 @@ def predict_image_audio(image, audio_path, alpha=0.7):
     t_img = time.time() - t_img0
 
     t_aud0 = time.time()
+    p_aud = wav2vec2_zero_shot_probs(wave, temperature=1.0)
     _, rms = wav2vec2_embed_energy(wave)
-    p_aud = audio_prior_from_rms(rms)
+    p_rms = audio_prior_from_rms(rms)
+    p_aud = 0.8 * p_aud + 0.2 * p_rms
     t_aud = time.time() - t_aud0
 
     t_fus0 = time.time()
