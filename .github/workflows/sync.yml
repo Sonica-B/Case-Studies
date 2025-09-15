@@ -42,7 +42,7 @@ jobs:
             - name: Upload folder to API-Space
               env:
                   HF_Token: ${{ secrets.HF_Token }}
-                  HF_SPACE_ID: ${{ secrets.HF_API_SPACE_ID }}
+                  HF_API_SPACE_ID: ${{ secrets.HF_API_SPACE_ID }}
               run: |
                     python - <<'PY'
                     import os
