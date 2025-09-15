@@ -29,7 +29,7 @@ def _audiosegment_float32(seg: AudioSegment) -> np.ndarray:
     return (samples.astype(np.float32) / 32768.0)
 
 #  public API
-def video_to_frames_and_audio(
+def video_to_frame_audio(
     video_in,
     target_frames: int = 64,   # aim for this many frames total
     fps_cap: float = 3.0       # never sample faster than this 
@@ -61,7 +61,7 @@ def video_to_frames_and_audio(
         for p in sorted(td.glob("frame_*.jpg")):
             frames.append(Image.open(p).convert("RGB"))
 
-    # Full audio track → mono 16 kHz float32
+    
     seg = AudioSegment.from_file(video_path)
     audio16k = _audiosegment_float32(seg)
 
