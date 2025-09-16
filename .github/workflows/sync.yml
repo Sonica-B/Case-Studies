@@ -39,10 +39,24 @@ jobs:
                     print("Local upload complete.")
                     PY
 
-            - name: Upload folder to API-Space
+    sync_api:
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout passed commit
+              uses: actions/checkout@v4
+
+            - name: Install hub client
+              run: pip install --upgrade huggingface_hub
+
+            - name: Use API README for this job
+              run: cp README.space-api.md README.md
+                    
+
+            - name: Upload to API Space
               env:
                   HF_Token: ${{ secrets.HF_Token }}
-                  HF_API_SPACE_ID: ${{ secrets.HF_API_SPACE_ID }}
+                  HF_API_SPACE_ID: ${{ secrets.HF_API_SPACE_ID }}   
               run: |
                     python - <<'PY'
                     import os
@@ -51,9 +65,9 @@ jobs:
                     api.upload_folder(
                         folder_path=".",
                         path_in_repo=".",
-                        repo_id=os.getenv("HF_API_SPACE_ID"),
+                        repo_id=os.environ["HF_API_SPACE_ID"],
                         repo_type="space",
-                        token=os.getenv("HF_Token"),
+                        token=os.environ["HF_Token"],
                         ignore_patterns=[".git/*", ".github/*", ".vscode/*", ".idea/*", "__pycache__/*"]
                     )
                     print("API upload complete.")
