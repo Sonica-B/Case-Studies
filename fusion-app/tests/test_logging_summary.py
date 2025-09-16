@@ -1,5 +1,5 @@
 from pathlib import Path
-from utils_media import append_csv, summarize_csv, now_iso
+from ..utils_media import append_csv, summarize_csv, now_iso
 
 def test_append_and_summarize(tmp_path: Path):
     csv_path = tmp_path / "runs_local.csv"
