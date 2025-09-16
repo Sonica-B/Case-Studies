@@ -28,17 +28,18 @@ jobs:
               with:
                     webhook-url: ${{ secrets.DISCORD }}
                     content: >
-                            **${{ github.workflow }} / ${{ github.job }}**
-                            - *Checkout Code* - **${{ steps.checkout_code.outcome }}**
-                            \nRepo: ${{ github.repository }}
-                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
-                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
-                            \nBranch: ${{ github.ref_name }}
-                            \nLink: ${{ github.event.workflow_run.html_url }}
-                            \n
-                            \n*Triggered by workflow run completion.*
-                            \n
+                            **${{ github.workflow }} - Local Sync**
+
+                            **Checkout Code:** ${{ steps.checkout_code.outcome == 'success' && 'SUCCESS' || steps.checkout_code.outcome == 'failure' && 'FAILED' || 'SKIPPED' }}
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+                            **Actor:** ${{ github.actor }}
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+
+                            *Triggered by successful test completion*
 
             - id: upload_folder
               name: Upload folder to Local-Space
@@ -66,19 +67,18 @@ jobs:
               if: ${{ always() }}
               uses: tsickert/discord-webhook@v7.0.0
               with:
-                    webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+                    webhook-url: ${{ secrets.DISCORD }}
                     content: >
-                            **${{ github.workflow }} / ${{ github.job }}**
-                            - *Local Upload* - **${{ steps.upload_folder.outcome }}**
-                            \nRepo: ${{ github.repository }}
-                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
-                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
-                            \nBranch: ${{ github.ref_name }}
-                            \nLink: ${{ github.event.workflow_run.html_url }}
-                            \n
-                            \n*Triggered by workflow run completion.*
-                            \n
+                            **Local Space Upload**
+
+                            **Upload Status:** ${{ steps.upload_folder.outcome == 'success' && 'SUCCESS' || steps.upload_folder.outcome == 'failure' && 'FAILED' || 'SKIPPED' }}
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+                            **Actor:** ${{ github.actor }}
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
 
 
     sync_api:
@@ -100,19 +100,18 @@ jobs:
               if: ${{ always() }}
               uses: tsickert/discord-webhook@v7.0.0
               with:
-                    webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+                    webhook-url: ${{ secrets.DISCORD }}
                     content: >
-                            **${{ github.workflow }} / ${{ github.job }}**
-                            - *Switched to API README* - **${{ steps.notify_use_api_readme.outcome }}**
-                            \nRepo: ${{ github.repository }}
-                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
-                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
-                            \nBranch: ${{ github.ref_name }}
-                            \nLink: ${{ github.event.workflow_run.html_url }}
-                            \n
-                            \n*Triggered by workflow run completion.*
-                            \n
+                            **API Space Preparation**
+
+                            **Switch to API README:** ${{ steps.use_api_readme.outcome == 'success' && 'SUCCESS' || steps.use_api_readme.outcome == 'failure' && 'FAILED' || 'SKIPPED' }}
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+                            **Actor:** ${{ github.actor }}
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
 
             - id: upload_api_space
               name: Upload to API Space
@@ -136,20 +135,21 @@ jobs:
                     PY
             
             - id: notify_discord_api_upload
-              name: Notify Discord - Use API Upload
+              name: Notify Discord - API Upload
               if: ${{ always() }}
               uses: tsickert/discord-webhook@v7.0.0
               with:
-                    webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+                    webhook-url: ${{ secrets.DISCORD }}
                     content: >
-                            **${{ github.workflow }} / ${{ github.job }}**
-                            - *API Upload Folder* - **${{ steps.notify_use_api_upload.outcome }}**
-                            \nRepo: ${{ github.repository }}
-                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
-                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
-                            \nBranch: ${{ github.ref_name }}
-                            \nLink: ${{ github.event.workflow_run.html_url }}
-                            \n
-                            \n*Triggered by workflow run completion.*
-                            \n
+                            **API Space Upload**
+
+                            **Upload Status:** ${{ steps.upload_api_space.outcome == 'success' && 'SUCCESS' || steps.upload_api_space.outcome == 'failure' && 'FAILED' || 'SKIPPED' }}
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+                            **Actor:** ${{ github.actor }}
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+
+                            *API Space deployment complete!*
