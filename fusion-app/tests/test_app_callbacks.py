@@ -22,7 +22,7 @@ predict_video = get_fn(app, "predict_video", "predict_vid")
 predict_image_audio = get_fn(app, "predict_image_audio")
 
 def test_predict_image_audio_fuses_correctly(monkeypatch):
-    K = len(app.LABELS)
+    K = len(app.lables)
     # deterministic distributions
     p_img = np.zeros(K); p_img[0] = 1.0     # image votes class 0
     p_aud = np.zeros(K); p_aud[1] = 1.0     # audio votes class 1
@@ -52,14 +52,14 @@ def test_predict_image_audio_fuses_correctly(monkeypatch):
     idx0 = 0
     idx1 = 1
 
-    assert probs_hi[app.LABELS[idx0]] > probs_hi[app.LABELS[idx1]]
-    assert probs_lo[app.LABELS[idx1]] > probs_lo[app.LABELS[idx0]]
+    assert probs_hi[app.lables[idx0]] > probs_hi[app.lables[idx1]]
+    assert probs_lo[app.lables[idx1]] > probs_lo[app.lables[idx0]]
     assert 0.99 <= sum(probs_hi.values()) <= 1.01
     assert 0.99 <= sum(probs_lo.values()) <= 1.01
     assert isinstance(pred_hi, str) and isinstance(pred_lo, str)
 
 def test_predict_video_path_runs_with_stubs(monkeypatch):
-    K = len(app.LABELS)
+    K = len(app.lables)
     p_img = np.zeros(K); p_img[-1] = 1.0   # image favors last class
     p_aud = np.zeros(K); p_aud[0]  = 1.0   # audio favors first class
 
@@ -86,5 +86,5 @@ def test_predict_video_path_runs_with_stubs(monkeypatch):
 
     # Checks
     assert isinstance(pred, str)
-    assert set(probs.keys()) == set(app.LABELS)
+    assert set(probs.keys()) == set(app.lables)
     assert "t_total_ms" in lat and "n_frames" in lat or "t_total_ms" in lat
