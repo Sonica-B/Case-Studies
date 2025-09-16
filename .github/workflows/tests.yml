@@ -48,7 +48,8 @@ jobs:
               if: ${{ always() }}
               run: |
                 python - <<'PY'
-                import os, json
+                import os, json, sys
+                sys.path.insert(0, 'fusion-app')
                 from utils_media import summarize_csv
                 p = "fusion-app/runs_local.csv"
                 if os.path.exists(p):
