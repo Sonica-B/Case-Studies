@@ -18,11 +18,13 @@ PROMPTS = [x["prompt"] for x in LABEL_ITEMS]
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
-HF_TOKEN = os.getenv("HF_Token") 
+HF_TOKEN = os.getenv("HF_Token")
 if not HF_TOKEN:
-    raise RuntimeError("Missing HF_Token in environment.")
-
-client = InferenceClient(token=HF_TOKEN)
+    print("Warning: HF_Token not found in environment. API functions will not work.")
+    print("To use the API version, set the HF_Token environment variable with your HuggingFace token.")
+    client = None
+else:
+    client = InferenceClient(token=HF_TOKEN)
 
 
 
@@ -32,16 +34,18 @@ def _img_to_jpeg_bytes(pil: Image.Image) -> bytes:
     return buf.getvalue()
 
 def clip_api_probs(pil: Image.Image, prompts: List[str] = PROMPTS) -> np.ndarray:
+    if client is None:
+        raise RuntimeError("HuggingFace client not initialized. Please set HF_Token environment variable.")
 
     result = client.zero_shot_image_classification(
         image=pil, candidate_labels=prompts,
-        hypothesis_template="{}",               
+        hypothesis_template="{}",
         model=CLIP_MODEL,
     )
-   
+
     scores = {d["label"]: float(d["score"]) for d in result}
     arr = np.array([scores.get(p, 0.0) for p in prompts], dtype=np.float32)
-    
+
     s = arr.sum();  arr = arr / s if s > 0 else np.ones_like(arr)/len(arr)
     return arr
 
@@ -58,6 +62,9 @@ def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
     return out.getvalue()
 
 def w2v2_api_embed(wave_16k: np.ndarray) -> np.ndarray:
+    if HF_TOKEN is None:
+        raise RuntimeError("HuggingFace token not available. Please set HF_Token environment variable.")
+
     wav_bytes = _wave_float32_to_wav_bytes(wave_16k)
 
     url = f"https://api-inference.huggingface.co/models/{W2V2_MODEL}"
