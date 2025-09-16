@@ -19,10 +19,33 @@ CSV_API = HERE / "runs_api.csv"
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
-HF_TOKEN = os.getenv("HF_Token") or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
+def get_hf_token():
+    token = os.getenv("HF_TOKEN") 
+    if token:
+        return token
+
+    key_paths = [
+        HERE / "key.txt",
+        HERE.parent / "key.txt",
+        Path("key.txt"),
+        Path("../key.txt")
+    ]
+
+    for key_path in key_paths:
+        try:
+            if key_path.exists():
+                token = key_path.read_text().strip()
+                if token:
+                    print(f"HuggingFace token loaded from {key_path}")
+                    return token
+        except Exception as e:
+            print(f"Error reading {key_path}: {e}")
+
+    return None
+
+HF_TOKEN = get_hf_token()
 if not HF_TOKEN:
-    print("Warning: HuggingFace token not found in environment. API functions will not work.")
-    print("To use the API version, set one of these environment variables: HF_Token, HF_TOKEN, or HUGGINGFACE_TOKEN")
+    print("Warning: HuggingFace token not found. API functions will not work.")
     client = None
 else:
     client = InferenceClient(token=HF_TOKEN)
@@ -64,7 +87,7 @@ def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
 
 def w2v2_api_embed(wave_16k: np.ndarray) -> np.ndarray:
     if HF_TOKEN is None:
-        raise RuntimeError("HuggingFace token not available. Please set HF_Token environment variable.")
+        raise RuntimeError("HuggingFace token not available.")
 
     wav_bytes = _wave_float32_to_wav_bytes(wave_16k)
 
