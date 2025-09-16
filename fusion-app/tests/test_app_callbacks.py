@@ -43,9 +43,9 @@ def test_predict_image_audio_fuses_correctly(monkeypatch):
     dummy_img = Image.new("RGB", (64, 64), color=128)
     dummy_audio_path = "dummy.wav"
 
-    # High alpha → image wins
+   
     pred_hi, probs_hi, _ = predict_image_audio(dummy_img, dummy_audio_path, 0.9)
-    # Low alpha → audio wins
+   
     pred_lo, probs_lo, _ = predict_image_audio(dummy_img, dummy_audio_path, 0.1)
 
     # Indexes for label 0/1
@@ -67,11 +67,8 @@ def test_predict_video_path_runs_with_stubs(monkeypatch):
     frames = [Image.new("RGB", (32, 32), c) for c in [(255,0,0)]*5]
     wave = np.zeros(16000, dtype=np.float32)
     meta = {"n_frames":5, "fps_used":1.0, "duration_s":5.0}
-    if hasattr(app, "video_to_frames_and_audio"):
-        monkeypatch.setattr(app, "video_to_frames_and_audio", lambda v, **kw: (frames, wave, meta), raising=True)
-    else:
-        
-        monkeypatch.setattr(app, "video_to_frame_and_audio", lambda v: (frames[0], wave), raising=True)
+    # Mock the video_to_frame_audio function that's imported from utils_media
+    monkeypatch.setattr(app, "video_to_frame_audio", lambda v, **kw: (frames, wave, meta), raising=True)
 
     # Stub models
     monkeypatch.setattr(app, "clip_image_probs", lambda pil, **kw: p_img, raising=True)
