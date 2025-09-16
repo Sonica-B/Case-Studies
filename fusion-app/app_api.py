@@ -18,9 +18,9 @@ PROMPTS = [x["prompt"] for x in LABEL_ITEMS]
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
-HF_TOKEN = os.getenv("HF_TOKEN") 
+HF_TOKEN = os.getenv("HF_Token") 
 if not HF_TOKEN:
-    raise RuntimeError("Missing HF_TOKEN in environment.")
+    raise RuntimeError("Missing HF_Token in environment.")
 
 client = InferenceClient(token=HF_TOKEN)
 
