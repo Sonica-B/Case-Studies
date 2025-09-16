@@ -6,7 +6,7 @@ from fusion import clip_image_probs, wav2vec2_embed_energy, wav2vec2_zero_shot_p
 
 HERE = Path(__file__).parent
 lables_PATH = HERE / "labels.json"
-
+CSV_API = HERE / "runs_api.csv"
 lables = [x["name"] for x in json.loads(lables_PATH.read_text())["labels"]]
 
 # lables = [x ["name"] for x in json.load(Path("fusion-app/labels.json").read_text())["labels"]]

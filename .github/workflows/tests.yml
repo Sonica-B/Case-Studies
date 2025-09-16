@@ -16,10 +16,73 @@ jobs:
               with: 
                   python-version: '3.10'
 
-            - name: Install dependencies
+            - id: install_deps
+              name: Install dependencies
               run: |
                   python -m pip install --upgrade pip
                   pip install -r requirements.txt
+            
+            - id: notify_discord_checkout
+              name: Notify Discord - Install Deps
+              if: ${{ always() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD }}
+                    content: >
+                            **${{ github.workflow }} / ${{ github.job }}**
+                            - *Install Deps* - **${{ steps.install_deps.outcome }}**
+                            \nRepo: ${{ github.repository }}
+                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
+                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
+                            \nLink: ${{ github.event.workflow_run.html_url }}
+                            \n
+                            \n*Triggered by workflow run completion.*
+                            \n
 
-            - name: Run tests
+            - id: run_tests
+              name: Run tests
               run: pytest --disable-warnings -q
+            
+            # - name: Summarize runs_local.csv (if present)
+            #   if: ${{ always() }}
+            #   run: |
+            #     python - <<'PY'
+            #     import os, json
+            #     from utils_media import summarize_csv
+            #     p = "fusion-app/runs_local.csv"
+            #     if os.path.exists(p):
+            #         s = summarize_csv(p)
+            #         open("runs_local.summary.json","w").write(json.dumps(s, indent=2))
+            #     PY
+
+            # - name: Upload run logs
+            #   if: ${{ always() }}
+            #   uses: actions/upload-artifact@v4
+            #   with:
+            #     name: runs-local-${{ github.run_number }}-${{ github.sha }}
+            #     path: |
+            #       fusion-app/runs_local.csv
+            #       runs_local.summary.json
+            #     if-no-files-found: ignore
+            #     retention-days: 14
+
+            # - id: notify_discord_tests
+            #   name: Notify Discord - Run Tests
+            #   if: ${{ always() }}
+            #   uses: tsickert/discord-webhook@v7.0.0
+            #   with:
+            #         webhook-url: ${{ secrets.DISCORD }}
+            #         content: >
+            #                 **${{ github.workflow }} / ${{ github.job }}**
+            #                 - *Run Tests* - **${{ steps.run_tests.outcome }}**
+            #                 \nRepo: ${{ github.repository }}
+            #                 \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            #                 \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
+            #                 \nMessage: ${{ github.event.workflow_run.head_commit.message }}
+            #                 \nBranch: ${{ github.ref_name }}
+            #                 \nLink: ${{ github.event.workflow_run.html_url }}
+            #                 \n
+            #                 \n*Triggered by workflow run completion.*
+            #                 \n
+

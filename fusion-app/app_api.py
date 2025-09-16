@@ -14,6 +14,7 @@ HERE = Path(__file__).parent
 LABEL_ITEMS = json.loads((HERE / "labels.json").read_text())["labels"]
 LABELS  = [x["name"]   for x in LABEL_ITEMS]
 PROMPTS = [x["prompt"] for x in LABEL_ITEMS]   
+CSV_API = HERE / "runs_api.csv"
 
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
@@ -142,6 +143,9 @@ def top1_label(p: np.ndarray) -> str:
     return LABELS[int(np.argmax(p))]
 
 def predict_video(video, alpha=0.7):
+    if HF_TOKEN is None:
+        return "Error: HuggingFace token required", {"error": "Please set HF_Token environment variable to use API features"}, {"error": "No token available"}
+
     t0 = time.time()
 
     # FULL video analysis
@@ -178,6 +182,9 @@ def predict_video(video, alpha=0.7):
     return pred, probs, lat
 
 def predict_image_audio(image: Image.Image, audio_path: str, alpha=0.7):
+    if HF_TOKEN is None:
+        return "Error: HuggingFace token required", {"error": "Please set HF_Token environment variable to use API features"}, {"error": "No token available"}
+
     t0 = time.time()
     wave = load_audio_16k(audio_path)
 

@@ -11,15 +11,37 @@ jobs:
         if: ${{ github.event.workflow_run.conclusion == 'success'}}
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout code
+            - id: checkout_code
+              name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Install Python deps
+            - id: install_deps
+              name: Install Python deps
               run: |
                     python -m pip install --upgrade pip
                     pip install huggingface_hub
 
-            - name: Upload folder to Local-Space
+            - id: notify_discord_checkout
+              name: Notify Discord — Checkout Code
+              if: ${{ always() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD }}
+                    content: >
+                            **${{ github.workflow }} / ${{ github.job }}**
+                            - *Checkout Code* - **${{ steps.checkout_code.outcome }}**
+                            \nRepo: ${{ github.repository }}
+                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
+                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
+                            \nBranch: ${{ github.ref_name }}
+                            \nLink: ${{ github.event.workflow_run.html_url }}
+                            \n
+                            \n*Triggered by workflow run completion.*
+                            \n
+
+            - id: upload_folder
+              name: Upload folder to Local-Space
               env:
                   HF_Token: ${{ secrets.HF_Token }}
                   HF_LOCAL_SPACE_ID: ${{ secrets.HF_LOCAL_SPACE_ID }}
@@ -39,6 +61,26 @@ jobs:
                     print("Local upload complete.")
                     PY
 
+            - id: notify_discord_local_upload
+              name: Notify Discord - Local Upload
+              if: ${{ always() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+                    content: >
+                            **${{ github.workflow }} / ${{ github.job }}**
+                            - *Local Upload* - **${{ steps.upload_folder.outcome }}**
+                            \nRepo: ${{ github.repository }}
+                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
+                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
+                            \nBranch: ${{ github.ref_name }}
+                            \nLink: ${{ github.event.workflow_run.html_url }}
+                            \n
+                            \n*Triggered by workflow run completion.*
+                            \n
+
+
     sync_api:
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         runs-on: ubuntu-latest
@@ -49,11 +91,31 @@ jobs:
             - name: Install hub client
               run: pip install --upgrade huggingface_hub
 
-            - name: Use API README for this job
+            - id: use_api_readme
+              name: Use API README for this job
               run: cp README.space-api.md README.md
                     
+            - id: notify_discord_api_readme
+              name: Notify Discord - Use API README
+              if: ${{ always() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+                    content: >
+                            **${{ github.workflow }} / ${{ github.job }}**
+                            - *Switched to API README* - **${{ steps.notify_use_api_readme.outcome }}**
+                            \nRepo: ${{ github.repository }}
+                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
+                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
+                            \nBranch: ${{ github.ref_name }}
+                            \nLink: ${{ github.event.workflow_run.html_url }}
+                            \n
+                            \n*Triggered by workflow run completion.*
+                            \n
 
-            - name: Upload to API Space
+            - id: upload_api_space
+              name: Upload to API Space
               env:
                   HF_Token: ${{ secrets.HF_Token }}
                   HF_API_SPACE_ID: ${{ secrets.HF_API_SPACE_ID }}   
@@ -72,3 +134,22 @@ jobs:
                     )
                     print("API upload complete.")
                     PY
+            
+            - id: notify_discord_api_upload
+              name: Notify Discord - Use API Upload
+              if: ${{ always() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
+                    content: >
+                            **${{ github.workflow }} / ${{ github.job }}**
+                            - *API Upload Folder* - **${{ steps.notify_use_api_upload.outcome }}**
+                            \nRepo: ${{ github.repository }}
+                            \nRun: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+                            \nSHA: ${{ github.sha }} • Actor: ${{ github.actor }}
+                            \nMessage: ${{ github.event.workflow_run.head_commit.message }}
+                            \nBranch: ${{ github.ref_name }}
+                            \nLink: ${{ github.event.workflow_run.html_url }}
+                            \n
+                            \n*Triggered by workflow run completion.*
+                            \n
