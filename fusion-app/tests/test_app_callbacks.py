@@ -3,8 +3,12 @@ import numpy as np
 from PIL import Image
 import importlib
 import builtins
+import sys
+from pathlib import Path
 
-# Import the app module
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 app = importlib.import_module("app_local")
 
 # Utility to get function by trying multiple possible names

@@ -1,6 +1,10 @@
 import json
 from pathlib import Path
 import importlib
+import sys
+
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 fusion = importlib.import_module("fusion")
 
