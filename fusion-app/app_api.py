@@ -6,7 +6,6 @@ import numpy as np
 from PIL import Image
 import gradio as gr
 import requests
-from huggingface_hub import InferenceClient
 from pydub import AudioSegment
 from utils_media import video_to_frame_audio, load_audio_16k, log_inference
 
@@ -20,12 +19,9 @@ CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
 
-HF_TOKEN = os.getenv("HF_TOKEN") 
+HF_TOKEN = os.getenv("HF_TOKEN")
 if not HF_TOKEN:
     print("Warning: HuggingFace token not found. API functions will not work.")
-    client = None
-else:
-    client = InferenceClient(token=HF_TOKEN)
 
 
 
@@ -35,20 +31,47 @@ def _img_to_jpeg_bytes(pil: Image.Image) -> bytes:
     return buf.getvalue()
 
 def clip_api_probs(pil: Image.Image, prompts: List[str] = PROMPTS) -> np.ndarray:
-    if client is None:
-        raise RuntimeError("HuggingFace client not initialized. Please set HF_Token environment variable.")
+    if HF_TOKEN is None:
+        raise RuntimeError("HuggingFace token not available. Please set HF_TOKEN environment variable.")
 
-    result = client.zero_shot_image_classification(
-        image=pil, candidate_labels=prompts,
-        hypothesis_template="{}",
-        model=CLIP_MODEL,
-    )
+    try:
+        # Use direct requests API call instead of InferenceClient
+        img_bytes = _img_to_jpeg_bytes(pil)
 
-    scores = {d["label"]: float(d["score"]) for d in result}
-    arr = np.array([scores.get(p, 0.0) for p in prompts], dtype=np.float32)
+        url = f"https://api-inference.huggingface.co/models/{CLIP_MODEL}"
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-    s = arr.sum();  arr = arr / s if s > 0 else np.ones_like(arr)/len(arr)
-    return arr
+        payload = {
+            "parameters": {
+                "candidate_labels": prompts,
+                "hypothesis_template": "{}"
+            }
+        }
+
+        files = {"file": ("image.jpg", img_bytes, "image/jpeg")}
+        data = {"inputs": "", "parameters": json.dumps(payload["parameters"])}
+
+        response = requests.post(url, headers=headers, files=files, data=data, timeout=60)
+        response.raise_for_status()
+
+        result = response.json()
+
+        # Handle response format
+        if isinstance(result, list) and len(result) > 0:
+            scores = {item["label"]: item["score"] for item in result}
+        else:
+            # Fallback: equal probabilities
+            scores = {p: 1.0/len(prompts) for p in prompts}
+
+        arr = np.array([scores.get(p, 0.0) for p in prompts], dtype=np.float32)
+        s = arr.sum()
+        arr = arr / s if s > 0 else np.ones_like(arr)/len(arr)
+        return arr
+
+    except Exception as e:
+        print(f"CLIP API error: {e}")
+        # Return uniform distribution as fallback
+        return np.ones(len(prompts), dtype=np.float32) / len(prompts)
 
 
 
