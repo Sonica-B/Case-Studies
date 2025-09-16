@@ -19,10 +19,10 @@ CSV_API = HERE / "runs_api.csv"
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
-HF_TOKEN = os.getenv("HF_Token")
+HF_TOKEN = os.getenv("HF_Token") or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
 if not HF_TOKEN:
-    print("Warning: HF_Token not found in environment. API functions will not work.")
-    print("To use the API version, set the HF_Token environment variable with your HuggingFace token.")
+    print("Warning: HuggingFace token not found in environment. API functions will not work.")
+    print("To use the API version, set one of these environment variables: HF_Token, HF_TOKEN, or HUGGINGFACE_TOKEN")
     client = None
 else:
     client = InferenceClient(token=HF_TOKEN)
