@@ -19,31 +19,8 @@ CSV_API = HERE / "runs_api.csv"
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
-def get_hf_token():
-    token = os.getenv("HF_TOKEN") 
-    if token:
-        return token
 
-    key_paths = [
-        HERE / "key.txt",
-        HERE.parent / "key.txt",
-        Path("key.txt"),
-        Path("../key.txt")
-    ]
-
-    for key_path in key_paths:
-        try:
-            if key_path.exists():
-                token = key_path.read_text().strip()
-                if token:
-                    print(f"HuggingFace token loaded from {key_path}")
-                    return token
-        except Exception as e:
-            print(f"Error reading {key_path}: {e}")
-
-    return None
-
-HF_TOKEN = get_hf_token()
+HF_TOKEN = os.getenv("HF_TOKEN") 
 if not HF_TOKEN:
     print("Warning: HuggingFace token not found. API functions will not work.")
     client = None
@@ -201,7 +178,7 @@ def predict_video(video, alpha=0.7):
         "fps_used":  meta.get("fps_used"),
         "duration_s": meta.get("duration_s"),
     }
-    log_inference(engine="api", mode="video", alpha=float(alpha), lat=lat, pred=pred, probs=probs)
+    log_inference(engine="api", mode="video", alpha=float(alpha), lat=lat, pred=pred, probs=probs, csv_path=CSV_API )
     return pred, probs, lat
 
 def predict_image_audio(image: Image.Image, audio_path: str, alpha=0.7):
@@ -234,7 +211,7 @@ def predict_image_audio(image: Image.Image, audio_path: str, alpha=0.7):
         "t_fuse_ms":  int(t_fus*1000),
         "t_total_ms": int((time.time()-t0)*1000),
     }
-    log_inference(engine="api", mode="image_audio", alpha=float(alpha), lat=lat, pred=pred, probs=probs)
+    log_inference(engine="api", mode="image_audio", alpha=float(alpha), lat=lat, pred=pred, probs=probs, csv_path=CSV_API)
     return pred, probs, lat
 
 '''

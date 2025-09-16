@@ -45,7 +45,7 @@ def predict_vid(video, alpha=0.7):
         "duration_s": round(float(meta.get("duration_s") or 0.0), 2),
     }
     print("[DEBUG] p_img:", p_img, "p_aud:", p_aud, "fused:", p, "rms:", rms, flush=True)
-    log_inference(engine="local", mode="video", alpha=float(alpha), lat=lat, pred=pred, probs=probs)
+    log_inference(engine="local", mode="video", alpha=float(alpha), lat=lat, pred=pred, probs=probs, csv_path="runs_local.csv")
     return pred, probs, lat
 
 def predict_image_audio(image, audio_path, alpha=0.7):
@@ -78,7 +78,7 @@ def predict_image_audio(image, audio_path, alpha=0.7):
         "rms": round(float(rms), 4),
     }
     print("[DEBUG] p_img:", p_img, "p_aud:", p_aud, "fused:", p, "rms:", rms, flush=True)
-    log_inference(engine="local", mode="image_audio", alpha=float(alpha), lat=lat, pred=pred, probs=probs)
+    log_inference(engine="local", mode="image_audio", alpha=float(alpha), lat=lat, pred=pred, probs=probs, csv_path="runs_local.csv")
     return pred, probs, lat
 
 
