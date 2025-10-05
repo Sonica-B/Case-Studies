@@ -282,7 +282,7 @@ def predict_video_wrapper(video, alpha, use_api, oauth_token: gr.OAuthToken | No
     global USER_HF_TOKEN
     if use_api:
         # Get user token from OAuth - Gradio automatically injects this parameter
-        if oauth_token is not None and hasattr(oauth_token, 'token'):
+        if oauth_token is not None and getattr(oauth_token, "token", None):
             USER_HF_TOKEN = oauth_token.token
         return predict_vid_api(video, alpha)
     else:
@@ -296,7 +296,7 @@ def predict_image_audio_wrapper(image, audio_path, alpha, use_api, oauth_token: 
     global USER_HF_TOKEN
     if use_api:
         # Get user token from OAuth - Gradio automatically injects this parameter
-        if oauth_token is not None and hasattr(oauth_token, 'token'):
+        if oauth_token is not None and getattr(oauth_token, "token", None):
             USER_HF_TOKEN = oauth_token.token
         return predict_image_audio_api(image, audio_path, alpha)
     else:
