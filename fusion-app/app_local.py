@@ -294,49 +294,6 @@ def predict_image_audio_wrapper(image, audio_path, alpha, use_api, oauth_token: 
     else:
         return predict_image_audio_local(image, audio_path, alpha)
 
-# ============= Gradio Interface =============
-with gr.Blocks(title="Scene Mood Detection") as demo:
-    with gr.Row():
-        gr.Markdown("# 🎬 Scene Mood Classifier\nUpload a short **video** or an **image + audio** pair.")
-        gr.LoginButton()
-
-    gr.Markdown("💡 **Tip:** Sign in with HuggingFace to use API mode, or use Local mode without signing in.")
-    gr.Markdown("---")
-
-    # Mode Selection
-    use_api_mode = gr.Checkbox(
-        label="Use API Mode (requires sign-in)",
-        value=False,
-        info="Unchecked = Local models, Checked = API models"
-    )
-
-    with gr.Tab("Video"):
-        v = gr.Video(sources=["upload"], height=240)
-        alpha_v = gr.Slider(
-            minimum=0.0, maximum=1.0, value=0.7, step=0.05,
-            label="Fusion weight α (image ↔ audio)",
-            info="α=1 trusts image only; α=0 trusts audio only."
-        )
-        btn_v = gr.Button("Analyze")
-        out_v1 = gr.Label(label="Prediction")
-        out_v2 = gr.JSON(label="Probabilities")
-        out_v3 = gr.JSON(label="Latency (ms)")
-        btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode], outputs=[out_v1, out_v2, out_v3])
-
-    with gr.Tab("Image + Audio"):
-        img = gr.Image(type="pil", height=240)
-        aud = gr.Audio(sources=["upload"], type="filepath")
-        alpha_ia = gr.Slider(
-            minimum=0.0, maximum=1.0, value=0.7, step=0.05,
-            label="Fusion weight α (image ↔ audio)",
-            info="α=1 trusts image only; α=0 trusts audio only."
-        )
-        btn_ia = gr.Button("Analyze")
-        out_i1 = gr.Label(label="Prediction")
-        out_i2 = gr.JSON(label="Probabilities")
-        out_i3 = gr.JSON(label="Latency (ms)")
-        btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode], outputs=[out_i1, out_i2, out_i3])
-
 # ============= Backward Compatibility Aliases for Tests =============
 def predict_image_audio(image, audio_path, alpha=0.7):
     """Backward compatible function for tests - uses local mode"""
@@ -345,6 +302,55 @@ def predict_image_audio(image, audio_path, alpha=0.7):
 def predict_video(video, alpha=0.7):
     """Backward compatible function for tests - uses local mode"""
     return predict_vid(video, alpha)
+
+# ============= Gradio Interface =============
+# Only create demo if not being imported for testing
+# Check for pytest in sys.modules to detect test environment
+import sys
+_is_testing = 'pytest' in sys.modules
+
+if not _is_testing:
+    with gr.Blocks(title="Scene Mood Detection") as demo:
+        with gr.Row():
+            gr.Markdown("# 🎬 Scene Mood Classifier\nUpload a short **video** or an **image + audio** pair.")
+            gr.LoginButton()
+
+        gr.Markdown("💡 **Tip:** Sign in with HuggingFace to use API mode, or use Local mode without signing in.")
+        gr.Markdown("---")
+
+        # Mode Selection
+        use_api_mode = gr.Checkbox(
+            label="Use API Mode (requires sign-in)",
+            value=False,
+            info="Unchecked = Local models, Checked = API models"
+        )
+
+        with gr.Tab("Video"):
+            v = gr.Video(sources=["upload"], height=240)
+            alpha_v = gr.Slider(
+                minimum=0.0, maximum=1.0, value=0.7, step=0.05,
+                label="Fusion weight α (image ↔ audio)",
+                info="α=1 trusts image only; α=0 trusts audio only."
+            )
+            btn_v = gr.Button("Analyze")
+            out_v1 = gr.Label(label="Prediction")
+            out_v2 = gr.JSON(label="Probabilities")
+            out_v3 = gr.JSON(label="Latency (ms)")
+            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode], outputs=[out_v1, out_v2, out_v3])
+
+        with gr.Tab("Image + Audio"):
+            img = gr.Image(type="pil", height=240)
+            aud = gr.Audio(sources=["upload"], type="filepath")
+            alpha_ia = gr.Slider(
+                minimum=0.0, maximum=1.0, value=0.7, step=0.05,
+                label="Fusion weight α (image ↔ audio)",
+                info="α=1 trusts image only; α=0 trusts audio only."
+            )
+            btn_ia = gr.Button("Analyze")
+            out_i1 = gr.Label(label="Prediction")
+            out_i2 = gr.JSON(label="Probabilities")
+            out_i3 = gr.JSON(label="Latency (ms)")
+            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
     demo.launch()
