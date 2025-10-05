@@ -9,3 +9,5 @@ numpy
 pytest
 huggingface_hub
 datasets
+requests
+gradio[oauth]
