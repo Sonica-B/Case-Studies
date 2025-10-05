@@ -307,8 +307,11 @@ def predict_video(video, alpha=0.7):
 # Only create demo if not being imported for testing
 # Check for pytest in sys.modules to detect test environment
 import sys
-_is_testing = 'pytest' in sys.modules
+import os
+_is_testing = 'pytest' in sys.modules or os.getenv('PYTEST_CURRENT_TEST') is not None
 
+# Always create demo for HF Spaces, but skip during pytest
+demo = None
 if not _is_testing:
     with gr.Blocks(title="Scene Mood Detection") as demo:
         with gr.Row():
