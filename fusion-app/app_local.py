@@ -274,21 +274,29 @@ def predict_image_audio_api(image, audio_path, alpha=0.7):
     return pred, probs, lat
 
 # ============= Wrapper Functions with Mode Selection =============
-def predict_video_wrapper(video, alpha, use_api, oauth_token: gr.OAuthToken | None):
+def predict_video_wrapper(video, alpha, use_api, oauth_token: gr.OAuthToken | None = None):
+    """
+    Wrapper function that routes to local or API prediction based on use_api flag.
+    oauth_token is automatically injected by Gradio when user is logged in.
+    """
     global USER_HF_TOKEN
     if use_api:
-        # Get user token from OAuth login
-        if oauth_token is not None:
+        # Get user token from OAuth - Gradio automatically injects this parameter
+        if oauth_token is not None and hasattr(oauth_token, 'token'):
             USER_HF_TOKEN = oauth_token.token
         return predict_vid_api(video, alpha)
     else:
         return predict_vid(video, alpha)
 
-def predict_image_audio_wrapper(image, audio_path, alpha, use_api, oauth_token: gr.OAuthToken | None):
+def predict_image_audio_wrapper(image, audio_path, alpha, use_api, oauth_token: gr.OAuthToken | None = None):
+    """
+    Wrapper function that routes to local or API prediction based on use_api flag.
+    oauth_token is automatically injected by Gradio when user is logged in.
+    """
     global USER_HF_TOKEN
     if use_api:
-        # Get user token from OAuth login
-        if oauth_token is not None:
+        # Get user token from OAuth - Gradio automatically injects this parameter
+        if oauth_token is not None and hasattr(oauth_token, 'token'):
             USER_HF_TOKEN = oauth_token.token
         return predict_image_audio_api(image, audio_path, alpha)
     else:
