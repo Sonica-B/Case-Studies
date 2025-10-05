@@ -210,7 +210,7 @@ def predict_image_audio_local(image, audio_path, alpha=0.7):
 
 # ============= API Prediction Functions =============
 def predict_vid_api(video, alpha=0.7):
-    if USER_HF_TOKEN is None:
+    if USER_HF_TOKEN is None or not str(USER_HF_TOKEN).startswith("hf_"):
         return "Error: Please sign in first", {"error": "HuggingFace token required"}, {"error": "No token"}
 
     t0 = time.time()
@@ -244,7 +244,7 @@ def predict_vid_api(video, alpha=0.7):
     return pred, probs, lat
 
 def predict_image_audio_api(image, audio_path, alpha=0.7):
-    if USER_HF_TOKEN is None:
+    if USER_HF_TOKEN is None or not str(USER_HF_TOKEN).startswith("hf_"):
         return "Error: Please sign in first", {"error": "HuggingFace token required"}, {"error": "No token"}
 
     t0 = time.time()
@@ -324,7 +324,7 @@ if not _is_testing:
     with gr.Blocks(title="Scene Mood Detection") as demo:
         with gr.Row():
             gr.Markdown("# 🎬 Scene Mood Classifier\nUpload a short **video** or an **image + audio** pair.")
-            gr.LoginButton()
+            login_btn = gr.LoginButton()
 
         gr.Markdown("💡 **Tip:** Sign in with HuggingFace to use API mode, or use Local mode without signing in.")
         gr.Markdown("---")
@@ -347,7 +347,7 @@ if not _is_testing:
             out_v1 = gr.Label(label="Prediction")
             out_v2 = gr.JSON(label="Probabilities")
             out_v3 = gr.JSON(label="Latency (ms)")
-            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode], outputs=[out_v1, out_v2, out_v3])
+            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode, login_btn], outputs=[out_v1, out_v2, out_v3])
 
         with gr.Tab("Image + Audio"):
             img = gr.Image(type="pil", height=240)
@@ -361,7 +361,7 @@ if not _is_testing:
             out_i1 = gr.Label(label="Prediction")
             out_i2 = gr.JSON(label="Probabilities")
             out_i3 = gr.JSON(label="Latency (ms)")
-            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode], outputs=[out_i1, out_i2, out_i3])
+            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode, login_btn], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
     demo.launch()
