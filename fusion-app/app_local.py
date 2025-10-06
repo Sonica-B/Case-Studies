@@ -281,10 +281,9 @@ def predict_video_wrapper(video, alpha, use_api, oauth_token: gr.OAuthToken | No
     """
     global USER_HF_TOKEN
     if use_api:
-        if oauth_token is not None and getattr(oauth_token, "token", None):
-            USER_HF_TOKEN = oauth_token.token
-        else:
-            USER_HF_TOKEN = None  
+        USER_HF_TOKEN = oauth_token.token if (oauth_token and getattr(oauth_token, "token", None)) else None
+        if USER_HF_TOKEN is None or not str(USER_HF_TOKEN).startswith("hf_"):
+            return "⚠️ Please sign in with your Hugging Face account first.", {}, {"error": "no_token"} 
         return predict_vid_api(video, alpha)
     else:
         return predict_vid(video, alpha)
@@ -296,10 +295,9 @@ def predict_image_audio_wrapper(image, audio_path, alpha, use_api, oauth_token: 
     """
     global USER_HF_TOKEN
     if use_api:
-        if oauth_token is not None and getattr(oauth_token, "token", None):
-            USER_HF_TOKEN = oauth_token.token
-        else:
-            USER_HF_TOKEN = None
+        USER_HF_TOKEN = oauth_token.token if (oauth_token and getattr(oauth_token, "token", None)) else None
+        if USER_HF_TOKEN is None or not str(USER_HF_TOKEN).startswith("hf_"):
+            return "⚠️ Please sign in with your Hugging Face account first.", {}, {"error": "no_token"}
         return predict_image_audio_api(image, audio_path, alpha)
     else:
         return predict_image_audio_local(image, audio_path, alpha)
@@ -326,7 +324,7 @@ if not _is_testing:
     with gr.Blocks(title="Scene Mood Detection") as demo:
         with gr.Row():
             gr.Markdown("# 🎬 Scene Mood Classifier\nUpload a short **video** or an **image + audio** pair.")
-            login_btn = gr.LoginButton()
+            gr.LoginButton()
 
         gr.Markdown("💡 **Tip:** Sign in with HuggingFace to use API mode, or use Local mode without signing in.")
         gr.Markdown("---")
@@ -349,7 +347,7 @@ if not _is_testing:
             out_v1 = gr.Label(label="Prediction")
             out_v2 = gr.JSON(label="Probabilities")
             out_v3 = gr.JSON(label="Latency (ms)")
-            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode, login_btn], outputs=[out_v1, out_v2, out_v3])
+            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode], outputs=[out_v1, out_v2, out_v3])
 
         with gr.Tab("Image + Audio"):
             img = gr.Image(type="pil", height=240)
@@ -363,7 +361,7 @@ if not _is_testing:
             out_i1 = gr.Label(label="Prediction")
             out_i2 = gr.JSON(label="Probabilities")
             out_i3 = gr.JSON(label="Latency (ms)")
-            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode, login_btn], outputs=[out_i1, out_i2, out_i3])
+            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
     demo.launch()
