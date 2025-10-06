@@ -7,6 +7,8 @@ from pydub import AudioSegment
 from utils_media import video_to_frame_audio, load_audio_16k, log_inference
 from fusion import clip_image_probs, wav2vec2_embed_energy, wav2vec2_zero_shot_probs, audio_prior_from_rms, fuse_probs, top1_label_from_probs
 from fusion import _ensure_audio_prototypes, _proto_embs
+from huggingface_hub import InferenceClient
+import requests
 
 HERE = Path(__file__).parent
 lables_PATH = HERE / "labels.json"
@@ -28,41 +30,31 @@ def _img_to_jpeg_bytes(pil: Image.Image) -> bytes:
     pil.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()
 
-def clip_api_probs(pil: Image.Image, prompts_list=None):
-    if prompts_list is None:
-        prompts_list = prompts
-    if USER_HF_TOKEN is None:
-        raise RuntimeError("Please sign in with your HuggingFace token to use API mode.")
-
+def clip_api_probs(pil_img, prompts, token):
+    """
+    Zero-shot image classification via CLIP using the official client.
+    Returns a normalized np.array of shape [len(prompts)].
+    """
+    client = InferenceClient(token=token)
     try:
-        img_bytes = _img_to_jpeg_bytes(pil)
-        url = f"https://api-inference.huggingface.co/models/{CLIP_MODEL}"
-        headers = {"Authorization": f"Bearer {USER_HF_TOKEN}"}
-        payload = {
-            "parameters": {
-                "candidate_labels": prompts_list,
-                "hypothesis_template": "{}"
-            }
-        }
-        files = {"file": ("image.jpg", img_bytes, "image/jpeg")}
-        data = {"inputs": "", "parameters": json.dumps(payload["parameters"])}
+        # Note: parameter name is candidate_labels (not labels)
+        result = client.zero_shot_image_classification(
+            image=pil_img,
+            candidate_labels=prompts,
+            hypothesis_template="{}",
+            model="openai/clip-vit-base-patch32",
+        )  # -> list of {label, score}
+    except requests.HTTPError as e:
+        # Graceful fallback: if serverless 404s, call your local CLIP path
+        if getattr(e, "response", None) and e.response.status_code == 404:
+            from fusion import clip_image_probs as local_clip
+            return local_clip(pil_img)
+        raise
 
-        response = requests.post(url, headers=headers, files=files, data=data, timeout=60)
-        response.raise_for_status()
-        result = response.json()
-
-        if isinstance(result, list) and len(result) > 0:
-            scores = {item["label"]: item["score"] for item in result}
-        else:
-            scores = {p: 1.0/len(prompts_list) for p in prompts_list}
-
-        arr = np.array([scores.get(p, 0.0) for p in prompts_list], dtype=np.float32)
-        s = arr.sum()
-        arr = arr / s if s > 0 else np.ones_like(arr)/len(arr)
-        return arr
-    except Exception as e:
-        print(f"CLIP API error: {e}")
-        return np.ones(len(prompts_list), dtype=np.float32) / len(prompts_list)
+    scores = {d["label"]: float(d["score"]) for d in result}
+    arr = np.array([scores.get(p, 0.0) for p in prompts], dtype=np.float32)
+    s = arr.sum()
+    return (arr / s) if s > 0 else np.ones(len(prompts), dtype=np.float32) / len(prompts)
 
 def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
     samples = (np.clip(wave_16k, -1, 1) * 32767.0).astype(np.int16)
@@ -71,16 +63,26 @@ def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
     seg.export(out, format="wav")
     return out.getvalue()
 
-def w2v2_api_embed(wave_16k: np.ndarray) -> np.ndarray:
-    if USER_HF_TOKEN is None:
-        raise RuntimeError("Please sign in with your HuggingFace token to use API mode.")
+def w2v2_api_embed(wave_16k, token):
+    """
+    Feature extraction via the official client.
+    Returns a mean-pooled, L2-normalized embedding (np.float32).
+    """
+    client = InferenceClient(token=token)
+    try:
+        feats = client.feature_extraction(
+            audio=wave_16k,       # 1-D float32 mono PCM @ 16kHz
+            model="facebook/wav2vec2-base",
+        )
+    except requests.HTTPError as e:
+        # Graceful fallback to local audio features/classifier if serverless 404s
+        if getattr(e, "response", None) and e.response.status_code == 404:
+            from fusion import wav2vec2_embed_energy  # or your local audio path
+            emb, _ = wav2vec2_embed_energy(wave_16k)
+            return emb
+        raise
 
-    wav_bytes = _wave_float32_to_wav_bytes(wave_16k)
-    url = f"https://api-inference.huggingface.co/models/{W2V2_MODEL}"
-    hdrs = {"Authorization": f"Bearer {USER_HF_TOKEN}"}
-    r = requests.post(url, headers=hdrs, data=wav_bytes, timeout=60)
-    r.raise_for_status()
-    arr = np.asarray(r.json(), dtype=np.float32)
+    arr = np.asarray(feats, dtype=np.float32)  # [T, D] or [1, T, D]
     if arr.ndim == 3:
         arr = arr[0]
     vec = arr.mean(axis=0)
@@ -117,20 +119,20 @@ def _synthesize_audio_prototypes_api(sr=16000, dur=2.0):
         "sad":       _triad(sr, 262, minor=True,  dur=dur, amp=0.20),
     }
 
-def _ensure_proto_embs_api():
+def _ensure_proto_embs_api(token: str):
     global _PROTO_EMBS_API
     if _PROTO_EMBS_API is not None:
         return
     waves = _synthesize_audio_prototypes_api()
     embs = {}
     for lbl, wav in waves.items():
-        e = w2v2_api_embed(wav)
+        e = w2v2_api_embed(wav, token)
         embs[lbl] = e
     _PROTO_EMBS_API = embs
 
-def w2v2_api_zero_shot_probs(wave_16k: np.ndarray, temperature: float = 1.0) -> np.ndarray:
-    _ensure_proto_embs_api()
-    emb = w2v2_api_embed(wave_16k)
+def w2v2_api_zero_shot_probs(wave_16k: np.ndarray, token: str, temperature: float = 1.0) -> np.ndarray:
+    _ensure_proto_embs_api(token)
+    emb = w2v2_api_embed(wave_16k, token)
     sims = np.array([float(np.dot(emb, _PROTO_EMBS_API[lbl])) for lbl in lables], dtype=np.float32)
     z = sims / max(1e-6, float(temperature))
     z = z - z.max()
@@ -217,12 +219,12 @@ def predict_vid_api(video, alpha=0.7):
     frames, wave, meta = video_to_frame_audio(video, target_frames=24, fps_cap=2.0)
 
     t_img0 = time.time()
-    per_frame = [clip_api_probs(pil) for pil in frames]
+    per_frame = [clip_api_probs(pil, prompts, USER_HF_TOKEN) for pil in frames]
     p_img = np.mean(np.stack(per_frame, axis=0), axis=0)
     t_img = time.time() - t_img0
 
     t_aud0 = time.time()
-    p_aud = w2v2_api_zero_shot_probs(wave, temperature=1.0)
+    p_aud = w2v2_api_zero_shot_probs(wave, USER_HF_TOKEN, temperature=1.0)
     t_aud = time.time() - t_aud0
 
     t_fus0 = time.time()
@@ -251,11 +253,11 @@ def predict_image_audio_api(image, audio_path, alpha=0.7):
     wave = load_audio_16k(audio_path)
 
     t_img0 = time.time()
-    p_img = clip_api_probs(image)
+    p_img = clip_api_probs(image, prompts, USER_HF_TOKEN)
     t_img = time.time() - t_img0
 
     t_aud0 = time.time()
-    p_aud = w2v2_api_zero_shot_probs(wave, temperature=1.0)
+    p_aud = w2v2_api_zero_shot_probs(wave, USER_HF_TOKEN, temperature=1.0)
     t_aud = time.time() - t_aud0
 
     t_fus0 = time.time()
