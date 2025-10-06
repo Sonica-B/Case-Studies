@@ -1,4 +1,6 @@
 import gradio as gr
+from huggingface_hub import InferenceClient
+from huggingface_hub.utils import HfHubHTTPError
 import json, os, time, requests, io
 import numpy as np
 from pathlib import Path
@@ -7,8 +9,7 @@ from pydub import AudioSegment
 from utils_media import video_to_frame_audio, load_audio_16k, log_inference
 from fusion import clip_image_probs, wav2vec2_embed_energy, wav2vec2_zero_shot_probs, audio_prior_from_rms, fuse_probs, top1_label_from_probs
 from fusion import _ensure_audio_prototypes, _proto_embs
-from huggingface_hub import InferenceClient
-import requests
+
 
 HERE = Path(__file__).parent
 lables_PATH = HERE / "labels.json"
@@ -33,28 +34,42 @@ def _img_to_jpeg_bytes(pil: Image.Image) -> bytes:
 def clip_api_probs(pil_img, prompts, token):
     """
     Zero-shot image classification via CLIP using the official client.
+    Strategy: try pinned model → retry with provider default → fallback to local.
     Returns a normalized np.array of shape [len(prompts)].
     """
     client = InferenceClient(token=token)
+
+    def _to_arr(result):
+        scores = {d["label"]: float(d["score"]) for d in result}
+        arr = np.array([scores.get(p, 0.0) for p in prompts], dtype=np.float32)
+        s = arr.sum()
+        return (arr / s) if s > 0 else np.ones(len(prompts), dtype=np.float32) / len(prompts)
+
     try:
-        # Note: parameter name is candidate_labels (not labels)
-        result = client.zero_shot_image_classification(
+        res = client.zero_shot_image_classification(
             image=pil_img,
             candidate_labels=prompts,
             hypothesis_template="{}",
-            model="openai/clip-vit-base-patch32",
-        )  # -> list of {label, score}
-    except requests.HTTPError as e:
-        # Graceful fallback: if serverless 404s, call your local CLIP path
-        if getattr(e, "response", None) and e.response.status_code == 404:
-            from fusion import clip_image_probs as local_clip
-            return local_clip(pil_img)
-        raise
+            model=CLIP_MODEL,
+        )
+        return _to_arr(res)
+    except (StopIteration, HfHubHTTPError) as e:
+        
+        print(f"[WARN] CLIP provider/model unavailable ({e}); retrying with provider default.", flush=True)
+        pass
 
-    scores = {d["label"]: float(d["score"]) for d in result}
-    arr = np.array([scores.get(p, 0.0) for p in prompts], dtype=np.float32)
-    s = arr.sum()
-    return (arr / s) if s > 0 else np.ones(len(prompts), dtype=np.float32) / len(prompts)
+    try:
+        res = client.zero_shot_image_classification(
+            image=pil_img,
+            candidate_labels=prompts,
+            hypothesis_template="{}",
+            model=None,
+        )
+        return _to_arr(res)
+    except (StopIteration, HfHubHTTPError) as e:
+        print(f"[WARN] CLIP default route failed ({e}); falling back to local.", flush=True)
+        from fusion import clip_image_probs as local_clip
+        return local_clip(pil_img)
 
 def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
     samples = (np.clip(wave_16k, -1, 1) * 32767.0).astype(np.int16)
@@ -66,28 +81,34 @@ def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
 def w2v2_api_embed(wave_16k, token):
     """
     Feature extraction via the official client.
+    Strategy: try pinned model → retry with provider default → fallback to local.
     Returns a mean-pooled, L2-normalized embedding (np.float32).
     """
     client = InferenceClient(token=token)
-    try:
-        feats = client.feature_extraction(
-            audio=wave_16k,       # 1-D float32 mono PCM @ 16kHz
-            model="facebook/wav2vec2-base",
-        )
-    except requests.HTTPError as e:
-        # Graceful fallback to local audio features/classifier if serverless 404s
-        if getattr(e, "response", None) and e.response.status_code == 404:
-            from fusion import wav2vec2_embed_energy  # or your local audio path
-            emb, _ = wav2vec2_embed_energy(wave_16k)
-            return emb
-        raise
 
-    arr = np.asarray(feats, dtype=np.float32)  # [T, D] or [1, T, D]
-    if arr.ndim == 3:
-        arr = arr[0]
-    vec = arr.mean(axis=0)
-    n = np.linalg.norm(vec) + 1e-8
-    return (vec / n).astype(np.float32)
+    def _mean_l2(feats):
+        arr = np.asarray(feats, dtype=np.float32)  # [T, D] or [1, T, D]
+        if arr.ndim == 3:
+            arr = arr[0]
+        vec = arr.mean(axis=0)
+        n = np.linalg.norm(vec) + 1e-8
+        return (vec / n).astype(np.float32)
+
+    try:
+        feats = client.feature_extraction(audio=wave_16k, model=W2V2_MODEL)
+        return _mean_l2(feats)
+    except (StopIteration, HfHubHTTPError) as e:
+        print(f"[WARN] W2V2 provider/model unavailable ({e}); retrying with provider default.", flush=True)
+        pass
+
+    try:
+        feats = client.feature_extraction(audio=wave_16k, model=None)
+        return _mean_l2(feats)
+    except (StopIteration, HfHubHTTPError) as e:
+        print(f"[WARN] W2V2 default route failed ({e}); falling back to local.", flush=True)
+        from fusion import wav2vec2_embed_energy
+        emb, _ = wav2vec2_embed_energy(wave_16k)
+        return emb
 
 _PROTO_EMBS_API = None
 
