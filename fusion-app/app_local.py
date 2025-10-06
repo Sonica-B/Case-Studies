@@ -274,41 +274,31 @@ def predict_image_audio_api(image, audio_path, alpha=0.7):
     return pred, probs, lat
 
 # ============= Wrapper Functions with Mode Selection =============
-def predict_video_wrapper(video, alpha, use_api, request: gr.Request):
+def predict_video_wrapper(video, alpha, use_api, oauth_token: gr.OAuthToken | None = None):
     """
     Wrapper function that routes to local or API prediction based on use_api flag.
     When user logs in via LoginButton on HF Spaces, their token is available via request.
     """
     global USER_HF_TOKEN
     if use_api:
-        # Get user's token from Gradio request context
-        # When OAuth is enabled, request.username contains the logged-in username
-        # The token is available via huggingface_hub.get_token()
-        try:
-            from huggingface_hub import get_token
-            USER_HF_TOKEN = get_token()
-            print(f"[DEBUG] Token retrieved: {USER_HF_TOKEN[:10] if USER_HF_TOKEN else 'None'}...")
-        except Exception as e:
-            print(f"[DEBUG] Failed to get token: {e}")
-            USER_HF_TOKEN = None
+        if oauth_token is not None and getattr(oauth_token, "token", None):
+            USER_HF_TOKEN = oauth_token.token
+        else:
+            USER_HF_TOKEN = None  
         return predict_vid_api(video, alpha)
     else:
         return predict_vid(video, alpha)
 
-def predict_image_audio_wrapper(image, audio_path, alpha, use_api, request: gr.Request):
+def predict_image_audio_wrapper(image, audio_path, alpha, use_api, oauth_token: gr.OAuthToken | None = None):
     """
     Wrapper function that routes to local or API prediction based on use_api flag.
     When user logs in via LoginButton on HF Spaces, their token is available via request.
     """
     global USER_HF_TOKEN
     if use_api:
-        # Get user's token from Gradio request context
-        try:
-            from huggingface_hub import get_token
-            USER_HF_TOKEN = get_token()
-            print(f"[DEBUG] Token retrieved: {USER_HF_TOKEN[:10] if USER_HF_TOKEN else 'None'}...")
-        except Exception as e:
-            print(f"[DEBUG] Failed to get token: {e}")
+        if oauth_token is not None and getattr(oauth_token, "token", None):
+            USER_HF_TOKEN = oauth_token.token
+        else:
             USER_HF_TOKEN = None
         return predict_image_audio_api(image, audio_path, alpha)
     else:
@@ -359,7 +349,7 @@ if not _is_testing:
             out_v1 = gr.Label(label="Prediction")
             out_v2 = gr.JSON(label="Probabilities")
             out_v3 = gr.JSON(label="Latency (ms)")
-            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode], outputs=[out_v1, out_v2, out_v3])
+            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode, login_btn], outputs=[out_v1, out_v2, out_v3])
 
         with gr.Tab("Image + Audio"):
             img = gr.Image(type="pil", height=240)
@@ -373,7 +363,7 @@ if not _is_testing:
             out_i1 = gr.Label(label="Prediction")
             out_i2 = gr.JSON(label="Probabilities")
             out_i3 = gr.JSON(label="Latency (ms)")
-            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode], outputs=[out_i1, out_i2, out_i3])
+            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode, login_btn], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
     demo.launch()
