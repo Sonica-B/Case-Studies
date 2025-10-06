@@ -349,7 +349,7 @@ if not _is_testing:
             out_v1 = gr.Label(label="Prediction")
             out_v2 = gr.JSON(label="Probabilities")
             out_v3 = gr.JSON(label="Latency (ms)")
-            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode, login_btn], outputs=[out_v1, out_v2, out_v3])
+            btn_v.click(predict_video_wrapper, inputs=[v, alpha_v, use_api_mode], outputs=[out_v1, out_v2, out_v3])
 
         with gr.Tab("Image + Audio"):
             img = gr.Image(type="pil", height=240)
@@ -363,7 +363,7 @@ if not _is_testing:
             out_i1 = gr.Label(label="Prediction")
             out_i2 = gr.JSON(label="Probabilities")
             out_i3 = gr.JSON(label="Latency (ms)")
-            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode, login_btn], outputs=[out_i1, out_i2, out_i3])
+            btn_ia.click(predict_image_audio_wrapper, inputs=[img, aud, alpha_ia, use_api_mode], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
     demo.launch()
