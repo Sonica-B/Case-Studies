@@ -9,7 +9,7 @@ from pydub import AudioSegment
 from utils_media import video_to_frame_audio, load_audio_16k, log_inference
 from fusion import clip_image_probs, wav2vec2_embed_energy, wav2vec2_zero_shot_probs, audio_prior_from_rms, fuse_probs, top1_label_from_probs
 from fusion import _ensure_audio_prototypes, _proto_embs
-
+import sys
 
 HERE = Path(__file__).parent
 lables_PATH = HERE / "labels.json"
@@ -45,28 +45,30 @@ def clip_api_probs(pil_img, prompts, token):
         s = arr.sum()
         return (arr / s) if s > 0 else np.ones(len(prompts), dtype=np.float32) / len(prompts)
 
+    # 1) try your pinned checkpoint first
     try:
+        img_bytes = _img_to_jpeg_bytes(pil_img)  # ← convert PIL → bytes
         res = client.zero_shot_image_classification(
-            image=pil_img,
+            image=img_bytes,                      # ← pass bytes (not PIL)
             candidate_labels=prompts,
             hypothesis_template="{}",
             model=CLIP_MODEL,
         )
         return _to_arr(res)
-    except (StopIteration, HfHubHTTPError) as e:
-        
+    except (StopIteration, HfHubHTTPError, ValueError) as e:
         print(f"[WARN] CLIP provider/model unavailable ({e}); retrying with provider default.", flush=True)
-        pass
 
+    # 2) provider default for the task
     try:
+        img_bytes = _img_to_jpeg_bytes(pil_img)  # ← convert again for clarity
         res = client.zero_shot_image_classification(
-            image=pil_img,
+            image=img_bytes,                      # ← pass bytes
             candidate_labels=prompts,
             hypothesis_template="{}",
             model=None,
         )
         return _to_arr(res)
-    except (StopIteration, HfHubHTTPError) as e:
+    except (StopIteration, HfHubHTTPError, ValueError) as e:
         print(f"[WARN] CLIP default route failed ({e}); falling back to local.", flush=True)
         from fusion import clip_image_probs as local_clip
         return local_clip(pil_img)
@@ -94,15 +96,24 @@ def w2v2_api_embed(wave_16k, token):
         n = np.linalg.norm(vec) + 1e-8
         return (vec / n).astype(np.float32)
 
+    def _feats_with_backoff(model_id):
+        try:
+            return client.feature_extraction(audio=wave_16k, model=model_id)
+        except (HfHubHTTPError, StopIteration) as e:
+            raise e
+        except Exception as e:
+            wav_bytes = _wave_float32_to_wav_bytes(wave_16k)
+            return client.feature_extraction(audio=wav_bytes, model=model_id)
+
     try:
-        feats = client.feature_extraction(audio=wave_16k, model=W2V2_MODEL)
+        feats = _feats_with_backoff(W2V2_MODEL)
         return _mean_l2(feats)
     except (StopIteration, HfHubHTTPError) as e:
         print(f"[WARN] W2V2 provider/model unavailable ({e}); retrying with provider default.", flush=True)
         pass
 
     try:
-        feats = client.feature_extraction(audio=wave_16k, model=None)
+        feats = _feats_with_backoff(None)
         return _mean_l2(feats)
     except (StopIteration, HfHubHTTPError) as e:
         print(f"[WARN] W2V2 default route failed ({e}); falling back to local.", flush=True)
@@ -337,8 +348,7 @@ def predict_video(video, alpha=0.7):
 # ============= Gradio Interface =============
 # Only create demo if not being imported for testing
 # Check for pytest in sys.modules to detect test environment
-import sys
-import os
+
 _is_testing = 'pytest' in sys.modules or os.getenv('PYTEST_CURRENT_TEST') is not None
 
 # Always create demo for HF Spaces, but skip during pytest
