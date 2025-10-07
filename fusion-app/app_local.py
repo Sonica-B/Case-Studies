@@ -31,11 +31,18 @@ def _img_to_jpeg_bytes(pil: Image.Image) -> bytes:
     pil.convert("RGB").save(buf, format="JPEG", quality=90)
     return buf.getvalue()
 
+CLIP_CANDIDATES = [
+    CLIP_MODEL, 
+    "openai/clip-vit-large-patch14-336",
+    "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
+    None,
+]
+
 def clip_api_probs(pil_img, prompts, token):
     """
-    Zero-shot image classification via CLIP using the official client.
-    Strategy: try pinned model → retry with provider default → fallback to local.
-    Returns a normalized np.array of shape [len(prompts)].
+    Zero-shot image classification via InferenceClient.
+    Try pinned → candidates → provider default → fallback LOCAL.
+    Returns np.array[K] normalized.
     """
     client = InferenceClient(token=token)
 
@@ -45,33 +52,26 @@ def clip_api_probs(pil_img, prompts, token):
         s = arr.sum()
         return (arr / s) if s > 0 else np.ones(len(prompts), dtype=np.float32) / len(prompts)
 
-    # 1) try your pinned checkpoint first
-    try:
-        img_bytes = _img_to_jpeg_bytes(pil_img)  # ← convert PIL → bytes
-        res = client.zero_shot_image_classification(
-            image=img_bytes,                      # ← pass bytes (not PIL)
-            candidate_labels=prompts,
-            hypothesis_template="{}",
-            model=CLIP_MODEL,
-        )
-        return _to_arr(res)
-    except (StopIteration, HfHubHTTPError, ValueError) as e:
-        print(f"[WARN] CLIP provider/model unavailable ({e}); retrying with provider default.", flush=True)
+    img_bytes = _img_to_jpeg_bytes(pil_img)  # PIL -> bytes
 
-    # 2) provider default for the task
-    try:
-        img_bytes = _img_to_jpeg_bytes(pil_img)  # ← convert again for clarity
-        res = client.zero_shot_image_classification(
-            image=img_bytes,                      # ← pass bytes
-            candidate_labels=prompts,
-            hypothesis_template="{}",
-            model=None,
-        )
-        return _to_arr(res)
-    except (StopIteration, HfHubHTTPError, ValueError) as e:
-        print(f"[WARN] CLIP default route failed ({e}); falling back to local.", flush=True)
-        from fusion import clip_image_probs as local_clip
-        return local_clip(pil_img)
+    last_err = None
+    for mid in CLIP_CANDIDATES:
+        try:
+            res = client.zero_shot_image_classification(
+                image=img_bytes,                      # bytes (compatible across hub versions)
+                candidate_labels=prompts,
+                hypothesis_template="{}",
+                model=mid,
+            )
+            return _to_arr(res)
+        except (HfHubHTTPError, StopIteration, ValueError) as e:
+            print(f"[WARN] CLIP provider/model {mid or 'DEFAULT'} failed ({e}); trying next.", flush=True)
+            last_err = e
+
+    # Final fallback: LOCAL CLIP to keep UX working
+    print(f"[WARN] CLIP all provider routes failed ({last_err}); falling back to LOCAL.", flush=True)
+    from fusion import clip_image_probs as local_clip
+    return local_clip(pil_img)
 
 def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
     samples = (np.clip(wave_16k, -1, 1) * 32767.0).astype(np.int16)
@@ -81,45 +81,9 @@ def _wave_float32_to_wav_bytes(wave_16k: np.ndarray, sr=16000) -> bytes:
     return out.getvalue()
 
 def w2v2_api_embed(wave_16k, token):
-    """
-    Feature extraction via the official client.
-    Strategy: try pinned model → retry with provider default → fallback to local.
-    Returns a mean-pooled, L2-normalized embedding (np.float32).
-    """
-    client = InferenceClient(token=token)
-
-    def _mean_l2(feats):
-        arr = np.asarray(feats, dtype=np.float32)  # [T, D] or [1, T, D]
-        if arr.ndim == 3:
-            arr = arr[0]
-        vec = arr.mean(axis=0)
-        n = np.linalg.norm(vec) + 1e-8
-        return (vec / n).astype(np.float32)
-
-    def _feats_with_backoff(model_id):
-        try:
-            return client.feature_extraction(audio=wave_16k, model=model_id)
-        except (HfHubHTTPError, StopIteration) as e:
-            raise e
-        except Exception as e:
-            wav_bytes = _wave_float32_to_wav_bytes(wave_16k)
-            return client.feature_extraction(audio=wav_bytes, model=model_id)
-
-    try:
-        feats = _feats_with_backoff(W2V2_MODEL)
-        return _mean_l2(feats)
-    except (StopIteration, HfHubHTTPError) as e:
-        print(f"[WARN] W2V2 provider/model unavailable ({e}); retrying with provider default.", flush=True)
-        pass
-
-    try:
-        feats = _feats_with_backoff(None)
-        return _mean_l2(feats)
-    except (StopIteration, HfHubHTTPError) as e:
-        print(f"[WARN] W2V2 default route failed ({e}); falling back to local.", flush=True)
-        from fusion import wav2vec2_embed_energy
-        emb, _ = wav2vec2_embed_energy(wave_16k)
-        return emb
+    from fusion import wav2vec2_embed_energy
+    emb, _ = wav2vec2_embed_energy(wave_16k)
+    return emb
 
 _PROTO_EMBS_API = None
 
