@@ -1,0 +1,31 @@
+# Prometheus Configuration
+# Following the pattern from rcpaffenroth/DSCS553_example
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # API Product - Python Application Metrics
+  - job_name: 'gradio_app_api'
+    static_configs:
+      - targets: ['ml-api:5001']
+
+  # API Product - Node Exporter
+  - job_name: 'node_exporter_api'
+    static_configs:
+      - targets: ['ml-api:5002']
+
+  # Local Product - Python Application Metrics
+  - job_name: 'gradio_app_local'
+    static_configs:
+      - targets: ['ml-local:5004']
+
+  # Local Product - Node Exporter
+  - job_name: 'node_exporter_local'
+    static_configs:
+      - targets: ['ml-local:5005']
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

@@ -1,0 +1,42 @@
+# Dockerfile for Locally Executed Product
+# Following the pattern from rcpaffenroth/DSCS553_example
+
+FROM python:3.10-slim
+
+# Set working directory
+WORKDIR /opt/app
+
+# Copy application files
+COPY fusion-app/ ./fusion-app/
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir prometheus-client==0.16.*
+
+# Install system dependencies including prometheus-node-exporter
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ffmpeg \
+        ca-certificates \
+        prometheus-node-exporter && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Pre-download models for faster startup
+RUN python -c "from transformers import CLIPModel, CLIPTokenizer, Wav2Vec2Model, Wav2Vec2FeatureExtractor; \
+    CLIPModel.from_pretrained('openai/clip-vit-base-patch32'); \
+    CLIPTokenizer.from_pretrained('openai/clip-vit-base-patch32'); \
+    Wav2Vec2Model.from_pretrained('facebook/wav2vec2-base'); \
+    Wav2Vec2FeatureExtractor.from_pretrained('facebook/wav2vec2-base')"
+
+# Expose ports
+EXPOSE 5003 5004 5005
+
+# Set environment variables
+ENV GRADIO_SERVER_NAME="0.0.0.0"
+ENV GRADIO_SERVER_PORT="5003"
+
+# Run both node exporter and the application
+CMD prometheus-node-exporter --web.listen-address=:5005 & python /opt/app/fusion-app/app_local_prometheus.py

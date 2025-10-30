@@ -1,0 +1,157 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "ML Model Monitoring Dashboard",
+    "tags": ["mlops", "monitoring"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Inferences",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(ml_inference_total[5m])",
+            "legendFormat": "{{model}} - {{mode}} - {{execution_type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Inference Duration (p95)",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(ml_inference_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{model}} - {{mode}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Active Users",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "ml_active_users",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "rate(ml_errors_total[5m])",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "API Calls to HuggingFace",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(ml_api_calls_total[5m])",
+            "legendFormat": "{{model}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Fusion Alpha Distribution",
+        "type": "heatmap",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "rate(ml_fusion_alpha_bucket[5m])",
+            "format": "heatmap",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Prediction Confidence by Mood",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, rate(ml_prediction_confidence_bucket[5m]))",
+            "legendFormat": "{{mood}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Model Status",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 20, "w": 8, "h": 6},
+        "targets": [
+          {
+            "expr": "ml_model_loaded",
+            "format": "table",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "GPU Availability",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 20, "w": 4, "h": 6},
+        "targets": [
+          {
+            "expr": "ml_gpu_available",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "System Metrics - CPU Usage",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 26, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "System Metrics - Memory Usage",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 26, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s",
+    "schemaVersion": 16,
+    "version": 0
+  }
+}
