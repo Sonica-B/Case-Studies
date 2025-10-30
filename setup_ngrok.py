@@ -110,10 +110,10 @@ def main():
 
     # Services to expose
     services = [
-        ("API Product", 7860, 4040),
-        ("Local Product", 7861, 4041),
-        ("Grafana", 3000, 4042),
-        ("Prometheus", 9090, 4043)
+        ("API Product", 5000, 4040),
+        ("Local Product", 5003, 4041),
+        ("Grafana", 5007, 4042),
+        ("Prometheus", 5006, 4043)
     ]
 
     urls = {}

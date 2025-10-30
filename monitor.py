@@ -12,14 +12,14 @@ from datetime import datetime
 
 # Service endpoints
 SERVICES = {
-    "API Product (Gradio)": "http://localhost:7860",
-    "Local Product (Gradio)": "http://localhost:7861",
-    "API Node Exporter": "http://localhost:9100/metrics",
-    "API Python Metrics": "http://localhost:8000/metrics",
-    "Local Node Exporter": "http://localhost:9101/metrics",
-    "Local Python Metrics": "http://localhost:8001/metrics",
-    "Prometheus": "http://localhost:9090/-/ready",
-    "Grafana": "http://localhost:3000/api/health",
+    "API Product (Gradio)": "http://localhost:5000",
+    "Local Product (Gradio)": "http://localhost:5003",
+    "API Node Exporter": "http://localhost:5002/metrics",
+    "API Python Metrics": "http://localhost:5001/metrics",
+    "Local Node Exporter": "http://localhost:5005/metrics",
+    "Local Python Metrics": "http://localhost:5004/metrics",
+    "Prometheus": "http://localhost:5006/-/ready",
+    "Grafana": "http://localhost:5007/api/health",
     "Ngrok API": "http://localhost:4040/api/tunnels",
     "Ngrok Local": "http://localhost:4041/api/tunnels",
     "Ngrok Grafana": "http://localhost:4042/api/tunnels"
@@ -46,7 +46,7 @@ def get_prometheus_metrics():
     try:
         # Query for total inferences
         query = "sum(ml_inference_total)"
-        response = requests.get(f"http://localhost:9090/api/v1/query",
+        response = requests.get(f"http://localhost:5006/api/v1/query",
                                params={"query": query}, timeout=5)
         if response.status_code == 200:
             data = response.json()
@@ -55,7 +55,7 @@ def get_prometheus_metrics():
 
         # Query for active users
         query = "sum(ml_active_users)"
-        response = requests.get(f"http://localhost:9090/api/v1/query",
+        response = requests.get(f"http://localhost:5006/api/v1/query",
                                params={"query": query}, timeout=5)
         if response.status_code == 200:
             data = response.json()
@@ -64,7 +64,7 @@ def get_prometheus_metrics():
 
         # Query for error rate
         query = "sum(rate(ml_errors_total[5m]))"
-        response = requests.get(f"http://localhost:9090/api/v1/query",
+        response = requests.get(f"http://localhost:5006/api/v1/query",
                                params={"query": query}, timeout=5)
         if response.status_code == 200:
             data = response.json()
