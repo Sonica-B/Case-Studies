@@ -39,4 +39,7 @@ ENV GRADIO_SERVER_NAME="0.0.0.0"
 ENV GRADIO_SERVER_PORT="5003"
 
 # Run both node exporter and the application
-CMD prometheus-node-exporter --web.listen-address=:5005 & python /opt/app/fusion-app/app_local_prometheus.py
+# Using exec to ensure Python gets signals and proper startup
+CMD prometheus-node-exporter --web.listen-address=:5005 & \
+    cd /opt/app && \
+    exec python fusion-app/app_local_prometheus.py

@@ -141,17 +141,26 @@ fi
 print_color "$GREEN" "✅ Docker is available"
 
 # Step 5: Stop existing containers
-print_header "Cleaning Up"
-print_color "$GREEN" "Stopping existing GROUP4 containers only..."
+print_header "Cleaning Up GROUP4 Only"
+print_color "$GREEN" "Stopping ONLY GROUP4 containers (preserving all other teams)..."
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
-# Stop only our group's containers (not other groups' containers)
-docker-compose down 2>/dev/null || true
+# IMPORTANT: Only stop GROUP4 containers by name
+echo "Stopping GROUP4 containers specifically..."
+for container in group4-ml-api-product group4-ml-local-product group4-prometheus group4-grafana; do
+    if docker ps -a --format '{{.Names}}' | grep -q "^${container}$"; then
+        echo "  Stopping ${container}..."
+        docker stop ${container} 2>/dev/null || true
+        docker rm ${container} 2>/dev/null || true
+    fi
+done
 
-# NOTE: We're NOT deleting any images to preserve other groups' work
-echo "✅ Stopped group4 containers (preserved all Docker images)"
+# NOTE: We're NOT using docker-compose down to avoid any risk
+# NOTE: We're NOT deleting ANY images to preserve all teams' work
+# NOTE: We're NOT touching any non-GROUP4 containers
+echo "✅ Stopped only GROUP4 containers (all other teams untouched)"
 EOF
 
 # Step 6: Build Docker images
@@ -182,18 +191,18 @@ print_color "$GREEN" "Launching GROUP4 containers..."
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
-# Start all GROUP4 services
+# Start ONLY GROUP4 services explicitly
 echo "Starting GROUP4 containers:"
-docker-compose up -d
+docker-compose up -d ml-api ml-local prometheus grafana
 
 # Wait for services to initialize
 echo "Waiting for GROUP4 services to start (30 seconds)..."
 sleep 30
 
-# Show container status
+# Show container status for GROUP4 only
 echo ""
 echo "GROUP4 Container Status:"
-docker-compose ps
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "NAMES|^group4-"
 
 # Check if GROUP4 containers are running
 running_count=$(docker ps --format "table {{.Names}}" | grep "^group4-" | wc -l)
@@ -282,13 +291,30 @@ fi
 # Configure ngrok
 ngrok config add-authtoken $NGROK_AUTHTOKEN
 
-# Kill any existing ngrok
-pkill -f ngrok || true
+# IMPORTANT: Only stop GROUP4's ngrok, never touch other teams'
+# Check for GROUP4 ngrok specifically (by config file or port 4044)
+if pgrep -f "ngrok.*group4|ngrok.*4044" > /dev/null; then
+    echo "Found existing GROUP4 ngrok process..."
+    # Only kill GROUP4's ngrok processes
+    for pid in $(pgrep -f "ngrok.*group4|ngrok.*4044"); do
+        echo "  Stopping GROUP4 ngrok PID: $pid"
+        kill $pid 2>/dev/null || true
+    done
+    sleep 2
+else
+    echo "No existing GROUP4 ngrok found"
+fi
 
-# Create ngrok config
+# Verify other teams' ngrok is still running
+if pgrep -f "ngrok" | grep -v -E "group4|4044" > /dev/null; then
+    echo "✅ Other teams' ngrok processes are still running"
+fi
+
+# Create ngrok config for GROUP4 with unique web address port
 cat > ngrok-group4.yml << NGROK_EOF
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
+web_addr: 127.0.0.1:4044  # GROUP4's unique ngrok web port
 tunnels:
   group4-api:
     proto: http
@@ -308,14 +334,14 @@ tunnels:
     inspect: false
 NGROK_EOF
 
-# Start ngrok
-nohup ngrok start --all --config ngrok-group4.yml > ngrok.log 2>&1 &
-sleep 5
+# Start GROUP4's ngrok with unique config
+nohup ngrok start --all --config ngrok-group4.yml > ngrok-group4.log 2>&1 &
+sleep 8
 
 # Get URLs
 echo ""
-echo "Fetching Ngrok public URLs..."
-curl -s http://localhost:4040/api/tunnels | python3 -c "
+echo "Fetching GROUP4 Ngrok public URLs..."
+curl -s http://localhost:4044/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -360,5 +386,5 @@ echo "   ./ssh_tunnel.sh $VM_USER"
 echo "   Then use: http://localhost:5000, etc."
 echo
 print_color "$YELLOW" "Port Range: 5000-5009"
-print_color "$YELLOW" "To check ngrok status on VM: ssh to VM and run 'curl http://localhost:4040/api/tunnels'"
+print_color "$YELLOW" "To check GROUP4 ngrok status on VM: ssh to VM and run 'curl http://localhost:4044/api/tunnels'"
 echo
