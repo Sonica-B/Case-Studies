@@ -11,6 +11,7 @@ This project deploys two ML products (API-based and locally-executed) with compr
 - **Grafana Dashboard** for visualization
 - **Docker Containerization** for all services
 - **Port Range**: 5000-5009 (exclusive allocation)
+- **GROUP4 Isolation**: All containers/images prefixed with `group4-` to avoid conflicts
 
 ## 📁 Project Structure
 
@@ -124,8 +125,8 @@ python monitor.py
 ### Container IPs:
 ```bash
 ssh -i ~/.ssh/vm -p 2222 group4@melnibone.wpi.edu
-docker inspect ml-api-product | grep IPAddress
-docker inspect ml-local-product | grep IPAddress
+docker inspect group4-ml-api-product | grep IPAddress
+docker inspect group4-ml-local-product | grep IPAddress
 ```
 
 ## 🛠️ Troubleshooting
@@ -150,8 +151,7 @@ docker system prune -f
 
 ## 📚 Documentation
 
-- [QUICKSTART_MANUAL.md](QUICKSTART_MANUAL.md) - Simple deployment guide
-- [MANUAL_DEPLOYMENT.md](MANUAL_DEPLOYMENT.md) - Detailed instructions
+- [GROUP4_ISOLATION.md](GROUP4_ISOLATION.md) - How GROUP4 resources are isolated
 - [SSH_KEY_SETUP.md](SSH_KEY_SETUP.md) - SSH key configuration
 
 ## 🎯 Key Commands

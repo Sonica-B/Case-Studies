@@ -142,32 +142,33 @@ print_color "$GREEN" "✅ Docker is available"
 
 # Step 5: Stop existing containers
 print_header "Cleaning Up"
-print_color "$GREEN" "Stopping existing containers..."
+print_color "$GREEN" "Stopping existing GROUP4 containers only..."
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
-# Stop any existing containers
+# Stop only our group's containers (not other groups' containers)
 docker-compose down 2>/dev/null || true
 
-# Clean up dangling images to save space
-docker image prune -f
-
-echo "✅ Cleanup complete"
+# NOTE: We're NOT deleting any images to preserve other groups' work
+echo "✅ Stopped group4 containers (preserved all Docker images)"
 EOF
 
 # Step 6: Build Docker images
-print_header "Building Docker Images"
+print_header "Building GROUP4 Docker Images"
+print_color "$YELLOW" "Building group4-ml-api and group4-ml-local images..."
 print_color "$YELLOW" "This may take 5-10 minutes..."
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
-echo "Building Docker images..."
+echo "Building GROUP4 Docker images..."
 docker-compose build --parallel
 
 if [ $? -eq 0 ]; then
-    echo "✅ Images built successfully"
+    echo "✅ GROUP4 images built successfully:"
+    echo "  - group4-ml-api:latest"
+    echo "  - group4-ml-local:latest"
 else
     echo "❌ Docker build failed"
     exit 1
@@ -175,32 +176,38 @@ fi
 EOF
 
 # Step 7: Start services
-print_header "Starting Services"
-print_color "$GREEN" "Launching containers..."
+print_header "Starting GROUP4 Services"
+print_color "$GREEN" "Launching GROUP4 containers..."
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
-# Start all services
+# Start all GROUP4 services
+echo "Starting GROUP4 containers:"
 docker-compose up -d
 
 # Wait for services to initialize
-echo "Waiting for services to start (30 seconds)..."
+echo "Waiting for GROUP4 services to start (30 seconds)..."
 sleep 30
 
 # Show container status
 echo ""
-echo "Container Status:"
+echo "GROUP4 Container Status:"
 docker-compose ps
 
-# Check if containers are running
-running_count=$(docker-compose ps | grep "Up" | wc -l)
+# Check if GROUP4 containers are running
+running_count=$(docker ps --format "table {{.Names}}" | grep "^group4-" | wc -l)
 if [ $running_count -ge 4 ]; then
-    echo "✅ All containers are running"
+    echo "✅ All 4 GROUP4 containers are running"
 else
-    echo "⚠️  Warning: Only $running_count containers are running (expected 4)"
+    echo "⚠️  Warning: Only $running_count GROUP4 containers are running (expected 4)"
     echo "Check logs with: docker-compose logs"
 fi
+
+# Show only GROUP4 containers
+echo ""
+echo "Active GROUP4 Containers:"
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "NAMES|^group4-"
 EOF
 
 # Step 8: Verify deployment
@@ -244,10 +251,9 @@ print_color "$GREEN" "Getting container details..."
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
-echo "Container IP Addresses (for Google Sheet):"
-for container in ml-api-product ml-local-product prometheus grafana; do
-    ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' case-studies_${container}_1 2>/dev/null || \
-         docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${container} 2>/dev/null)
+echo "GROUP4 Container IP Addresses (for Google Sheet):"
+for container in group4-ml-api-product group4-ml-local-product group4-prometheus group4-grafana; do
+    ip=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${container} 2>/dev/null)
     if [ ! -z "$ip" ]; then
         echo "  $container: $ip"
     fi

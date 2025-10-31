@@ -1,12 +1,13 @@
 version: '3.8'
 
 services:
-  # API-based Product (Following rcpaffenroth/DSCS553_example pattern)
+  # API-based Product (GROUP4)
   ml-api:
     build:
       context: .
       dockerfile: Dockerfile.api
-    container_name: ml-api-product
+    image: group4-ml-api:latest
+    container_name: group4-ml-api-product
     environment:
       - HF_TOKEN=${HF_TOKEN}
       - GRADIO_SERVER_NAME=0.0.0.0
@@ -17,14 +18,15 @@ services:
       - "5002:5002"  # Node exporter
     restart: unless-stopped
     networks:
-      - ml-network
+      - group4-network
 
-  # Locally Executed Product
+  # Locally Executed Product (GROUP4)
   ml-local:
     build:
       context: .
       dockerfile: Dockerfile.local
-    container_name: ml-local-product
+    image: group4-ml-local:latest
+    container_name: group4-ml-local-product
     environment:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=5003
@@ -33,10 +35,10 @@ services:
       - "5004:5004"  # Python metrics
       - "5005:5005"  # Node exporter
     volumes:
-      - model-cache:/root/.cache/huggingface
+      - group4-model-cache:/root/.cache/huggingface
     restart: unless-stopped
     networks:
-      - ml-network
+      - group4-network
     deploy:
       resources:
         reservations:
@@ -45,10 +47,10 @@ services:
               count: all
               capabilities: [gpu]  # Optional GPU support
 
-  # Prometheus Server
+  # Prometheus Server (GROUP4)
   prometheus:
     image: prom/prometheus:latest
-    container_name: prometheus
+    container_name: group4-prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -56,38 +58,38 @@ services:
       - "5006:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
+      - group4-prometheus-data:/prometheus
     networks:
-      - ml-network
+      - group4-network
     restart: unless-stopped
     depends_on:
       - ml-api
       - ml-local
 
-  # Grafana Server (Extra Credit)
+  # Grafana Server (GROUP4)
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: group4-grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     ports:
       - "5007:3000"
     volumes:
-      - grafana-data:/var/lib/grafana
+      - group4-grafana-data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
     networks:
-      - ml-network
+      - group4-network
     restart: unless-stopped
     depends_on:
       - prometheus
 
 networks:
-  ml-network:
+  group4-network:
     driver: bridge
 
 volumes:
-  prometheus-data:
-  grafana-data:
-  model-cache:
+  group4-prometheus-data:
+  group4-grafana-data:
+  group4-model-cache:
