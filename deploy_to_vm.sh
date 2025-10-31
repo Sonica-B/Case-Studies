@@ -264,26 +264,101 @@ echo "Resource Usage:"
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
 EOF
 
+# Step 10: Start Ngrok tunnels
+print_header "Setting up Ngrok Tunnels"
+print_color "$GREEN" "Starting ngrok for public access..."
+
+ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << EOF
+cd ~/Case-Studies
+
+# Check if ngrok is installed
+if ! command -v ngrok &> /dev/null; then
+    echo "Installing ngrok..."
+    curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+    sudo apt update && sudo apt install ngrok -y
+fi
+
+# Configure ngrok
+ngrok config add-authtoken $NGROK_AUTHTOKEN
+
+# Kill any existing ngrok
+pkill -f ngrok || true
+
+# Create ngrok config
+cat > ngrok-group4.yml << NGROK_EOF
+version: "2"
+authtoken: $NGROK_AUTHTOKEN
+tunnels:
+  group4-api:
+    proto: http
+    addr: 5000
+    inspect: false
+  group4-local:
+    proto: http
+    addr: 5003
+    inspect: false
+  group4-prometheus:
+    proto: http
+    addr: 5006
+    inspect: false
+  group4-grafana:
+    proto: http
+    addr: 5007
+    inspect: false
+NGROK_EOF
+
+# Start ngrok
+nohup ngrok start --all --config ngrok-group4.yml > ngrok.log 2>&1 &
+sleep 5
+
+# Get URLs
+echo ""
+echo "Fetching Ngrok public URLs..."
+curl -s http://localhost:4040/api/tunnels | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print('\\n🌐 PUBLIC URLs (Share these):')
+    print('=' * 40)
+    for tunnel in data.get('tunnels', []):
+        name = tunnel.get('name', 'unknown')
+        url = tunnel.get('public_url', 'N/A')
+        if 'group4' in name:
+            if 'api' in name and 'https' in url:
+                print(f'API Product: {url}')
+            elif 'local' in name and 'https' in url:
+                print(f'Local Product: {url}')
+            elif 'prometheus' in name:
+                print(f'Prometheus: {url}')
+            elif 'grafana' in name:
+                print(f'Grafana: {url}')
+    print('=' * 40)
+except:
+    print('Could not fetch ngrok URLs - check ngrok.log')
+"
+EOF
+
 # Final summary
 print_header "🎉 Deployment Complete!"
 echo
-print_color "$GREEN" "All services deployed successfully from GitHub!"
+print_color "$GREEN" "GROUP4 services deployed successfully!"
 echo
 print_color "$BLUE" "Repository Info:"
 echo "  - Repo: Case-Studies"
 echo "  - Branch: $BRANCH"
 echo "  - Path: $PROJECT_PATH"
 echo
-print_color "$BLUE" "Access Services:"
-echo "1. Set up SSH tunnel:"
-echo "   ./ssh_tunnel.sh $VM_USER"
+print_color "$BLUE" "Access Options:"
 echo
-echo "2. Open in browser:"
-echo "   - API Product:  http://localhost:5000"
-echo "   - Local Product: http://localhost:5003"
-echo "   - Prometheus:   http://localhost:5006"
-echo "   - Grafana:      http://localhost:5007 (admin/admin)"
+echo "1. Via Ngrok Public URLs (shown above)"
+echo "   - Share these URLs with anyone"
+echo "   - No SSH tunnel needed"
+echo
+echo "2. Via SSH Tunnel (local access):"
+echo "   ./ssh_tunnel.sh $VM_USER"
+echo "   Then use: http://localhost:5000, etc."
 echo
 print_color "$YELLOW" "Port Range: 5000-5009"
-print_color "$YELLOW" "Remember to commit and push your changes to GitHub before deploying!"
+print_color "$YELLOW" "To check ngrok status on VM: ssh to VM and run 'curl http://localhost:4040/api/tunnels'"
 echo

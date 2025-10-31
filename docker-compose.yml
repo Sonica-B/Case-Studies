@@ -39,13 +39,7 @@ services:
     restart: unless-stopped
     networks:
       - group4-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]  # Optional GPU support
+    # Note: GPU support removed - not available on shared VM
 
   # Prometheus Server (GROUP4)
   prometheus:
@@ -62,9 +56,7 @@ services:
     networks:
       - group4-network
     restart: unless-stopped
-    depends_on:
-      - ml-api
-      - ml-local
+    # Note: Removed hard dependency on ml-local since it might fail to start
 
   # Grafana Server (GROUP4)
   grafana:

@@ -72,7 +72,11 @@ Case-Studies/
    ```
    Enter your SSH key password when prompted.
 
-5. **Set up SSH tunnel** (new terminal):
+5. **Access services** via Ngrok public URLs (automatically set up during deployment)
+   - URLs will be displayed after deployment
+   - No SSH tunnel needed for public access
+
+   **Alternative: Local access via SSH tunnel**:
    ```bash
    # Windows
    ssh_tunnel.bat  # Uses default group4
@@ -80,8 +84,7 @@ Case-Studies/
    # Linux/Mac
    ./ssh_tunnel.sh  # Uses default group4
    ```
-
-5. **Access services**:
+   Then access:
    - API Product: http://localhost:5000
    - Local Product: http://localhost:5003
    - Prometheus: http://localhost:5006
@@ -151,6 +154,7 @@ docker system prune -f
 
 ## 📚 Documentation
 
+- [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Fix common issues (GPU error, etc.)
 - [GROUP4_ISOLATION.md](GROUP4_ISOLATION.md) - How GROUP4 resources are isolated
 - [SSH_KEY_SETUP.md](SSH_KEY_SETUP.md) - SSH key configuration
 
