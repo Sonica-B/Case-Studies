@@ -8,7 +8,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # SSH connection details
-SSH_KEY="/home/sonica/.ssh/vm"
+SSH_KEY="$HOME/.ssh/vm"
 VM_USER="group4"
 VM_HOST="melnibone.wpi.edu"
 VM_PORT="2222"

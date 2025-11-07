@@ -12,7 +12,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # SSH details
-SSH_KEY="./.ssh/vm"
+SSH_KEY="$HOME/.ssh/vm"
 VM_USER="group4"
 VM_HOST="melnibone.wpi.edu"
 VM_PORT="2222"
