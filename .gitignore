@@ -217,3 +217,11 @@ docs/*
 system_analysis_temp.sh
 system_analysis_*.txt
 check_group4_urls.sh
+emergency_fix_group4.sh
+fix_group4_complete.sh
+setup_tokens.sh
+start_api.sh
+start_local.sh
+ngrok-group4.log
+ngrok-group4*.yml
+.envrc

@@ -171,6 +171,14 @@ print_color "$YELLOW" "This may take 5-10 minutes..."
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
 
+# Source environment variables if they exist
+if [ -f ~/.envrc ]; then
+    source ~/.envrc
+    echo "✅ Loaded environment variables from ~/.envrc"
+else
+    echo "⚠️  No ~/.envrc found. Run setup_tokens.sh first!"
+fi
+
 echo "Building GROUP4 Docker images..."
 docker-compose build --parallel
 
@@ -190,6 +198,13 @@ print_color "$GREEN" "Launching GROUP4 containers..."
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
+
+# Source environment variables
+if [ -f ~/.envrc ]; then
+    source ~/.envrc
+    export HF_TOKEN
+    export NGROK_AUTHTOKEN
+fi
 
 # Start ONLY GROUP4 services explicitly
 echo "Starting GROUP4 containers:"
@@ -277,8 +292,13 @@ EOF
 print_header "Setting up Ngrok Tunnels"
 print_color "$GREEN" "Starting ngrok for public access..."
 
-ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << EOF
+ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'EOF'
 cd ~/Case-Studies
+
+# Source environment variables
+if [ -f ~/.envrc ]; then
+    source ~/.envrc
+fi
 
 # Check if ngrok is installed
 if ! command -v ngrok &> /dev/null; then
@@ -288,8 +308,12 @@ if ! command -v ngrok &> /dev/null; then
     sudo apt update && sudo apt install ngrok -y
 fi
 
-# Configure ngrok
-ngrok config add-authtoken $NGROK_AUTHTOKEN
+# Configure ngrok with token from .envrc
+if [ -n "$NGROK_AUTHTOKEN" ]; then
+    ngrok config add-authtoken $NGROK_AUTHTOKEN
+else
+    echo "⚠️  No NGROK_AUTHTOKEN found. Ngrok may not work properly."
+fi
 
 # IMPORTANT: Only stop GROUP4's ngrok, never touch other teams'
 # Check for GROUP4 ngrok specifically (by config file or port 4044)

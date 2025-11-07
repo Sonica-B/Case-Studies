@@ -18,6 +18,8 @@ CSV_API = HERE / "runs_api.csv"
 CLIP_MODEL = "openai/clip-vit-base-patch32"
 W2V2_MODEL = "facebook/wav2vec2-base"
 
+# Temperature parameter for model inference (imported by app_api_prometheus.py)
+temperature = 0.7
 
 HF_TOKEN = os.getenv("HF_TOKEN")
 if not HF_TOKEN:
