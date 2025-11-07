@@ -186,6 +186,7 @@ cat > ~/.envrc << 'ENVRC'
 export HF_TOKEN="$HF_TOKEN"
 export NGROK_AUTHTOKEN="$NGROK_AUTHTOKEN"
 
+
 # Auto-export for docker-compose
 export DOCKER_CONTENT_TRUST=0
 ENVRC
