@@ -42,16 +42,9 @@ if [ ! -f "$SSH_KEY" ]; then
     exit 1
 fi
 
-# Check environment variables
-if [ -z "$HF_TOKEN" ]; then
-    print_color "$YELLOW" "Warning: HF_TOKEN not set"
-    read -p "Enter your HuggingFace token: " HF_TOKEN
-fi
-
-if [ -z "$NGROK_AUTHTOKEN" ]; then
-    print_color "$YELLOW" "Warning: NGROK_AUTHTOKEN not set"
-    read -p "Enter your Ngrok auth token: " NGROK_AUTHTOKEN
-fi
+# Tokens are now stored on the VM in ~/.envrc
+# No need to check locally - they will be loaded from the VM
+print_color "$GREEN" "Using tokens from VM's ~/.envrc file"
 
 # Step 1: Test SSH connection
 print_header "Testing SSH Connection"
@@ -105,10 +98,15 @@ print_color "$GREEN" "Creating .env file with tokens..."
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << EOF
 cd $PROJECT_PATH
 
-# Create .env file with tokens
+# Source tokens from ~/.envrc if it exists
+if [ -f ~/.envrc ]; then
+    source ~/.envrc
+fi
+
+# Create .env file with tokens from .envrc
 cat > .env << ENV_FILE
-HF_TOKEN=$HF_TOKEN
-NGROK_AUTHTOKEN=$NGROK_AUTHTOKEN
+HF_TOKEN=\${HF_TOKEN}
+NGROK_AUTHTOKEN=\${NGROK_AUTHTOKEN}
 
 # Port configuration
 API_GRADIO_PORT=5000
