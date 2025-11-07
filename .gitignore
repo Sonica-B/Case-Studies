@@ -212,3 +212,8 @@ key.txt
 docs/*
 
 .claude/settings.local.json
+
+# Temporary system analysis files (not part of case study)
+system_analysis_temp.sh
+system_analysis_*.txt
+check_group4_urls.sh
