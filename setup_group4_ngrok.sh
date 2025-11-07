@@ -1,0 +1,188 @@
+#!/bin/bash
+
+# ============================================================================
+# GROUP4 NGROK SETUP WITH YOUR PERMANENT DOMAIN
+# ============================================================================
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# SSH connection details
+SSH_KEY="/home/sonica/.ssh/vm"
+VM_USER="group4"
+VM_HOST="melnibone.wpi.edu"
+VM_PORT="2222"
+
+# Your permanent ngrok domain
+NGROK_DOMAIN="unremounted-unejective-tracey.ngrok-free.dev"
+
+echo -e "${BLUE}======================================${NC}"
+echo -e "${BLUE}   GROUP4 Ngrok Setup${NC}"
+echo -e "${BLUE}======================================${NC}"
+echo
+echo -e "${GREEN}Using your permanent domain:${NC}"
+echo -e "${YELLOW}  $NGROK_DOMAIN${NC}"
+echo
+
+ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
+
+# Colors for remote
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+cd ~/Case-Studies
+
+echo -e "${YELLOW}Stopping any existing GROUP4 ngrok...${NC}"
+
+# Kill any existing ngrok on port 4044 or with wrong config
+for pid in $(pgrep -f "ngrok.*4044|ngrok.*32150"); do
+    echo "  Killing PID: $pid"
+    kill $pid 2>/dev/null || true
+done
+
+# Also kill any ngrok running for GROUP4
+for pid in $(pgrep -u group4 -f ngrok); do
+    echo "  Killing GROUP4 ngrok PID: $pid"
+    kill $pid 2>/dev/null || true
+done
+
+sleep 3
+
+echo -e "${YELLOW}Setting up ngrok with your permanent domain...${NC}"
+
+# Source environment for tokens
+if [ -f ~/.envrc ]; then
+    source ~/.envrc
+fi
+
+# Configure ngrok if token exists
+if [ -n "$NGROK_AUTHTOKEN" ]; then
+    ngrok config add-authtoken $NGROK_AUTHTOKEN
+fi
+
+# Create proper ngrok config for GROUP4 with permanent domain
+cat > ngrok-group4.yml << 'NGROK_CONFIG'
+version: "2"
+web_addr: 127.0.0.1:4044
+tunnels:
+  ml-api:
+    proto: http
+    addr: 5000
+    hostname: unremounted-unejective-tracey.ngrok-free.dev
+    host_header: "localhost:5000"
+  ml-api-metrics:
+    proto: http
+    addr: 5001
+  ml-api-exporter:
+    proto: http
+    addr: 5002
+  ml-local:
+    proto: http
+    addr: 5003
+  ml-local-metrics:
+    proto: http
+    addr: 5004
+  ml-local-exporter:
+    proto: http
+    addr: 5005
+  prometheus:
+    proto: http
+    addr: 5006
+  grafana:
+    proto: http
+    addr: 5007
+NGROK_CONFIG
+
+echo -e "${YELLOW}Starting ngrok with GROUP4 configuration...${NC}"
+
+# Start ngrok with all tunnels
+nohup ngrok start --all --config ngrok-group4.yml > ngrok-group4.log 2>&1 &
+NGROK_PID=$!
+
+echo "Started ngrok with PID: $NGROK_PID"
+echo "Waiting for ngrok to initialize..."
+sleep 10
+
+# Check if ngrok is running and show URLs
+if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Ngrok started successfully!${NC}"
+    echo
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${BLUE}   YOUR GROUP4 PUBLIC URLS${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo
+
+    # Show main permanent domain
+    echo -e "${GREEN}Main Domain (ML-API):${NC}"
+    echo -e "${YELLOW}  https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
+    echo
+
+    # Get all tunnel URLs
+    echo -e "${GREEN}All Service URLs:${NC}"
+    curl -s http://localhost:4044/api/tunnels | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    services = {}
+
+    for tunnel in data.get('tunnels', []):
+        if tunnel.get('proto') == 'https':
+            name = tunnel.get('name', '')
+            url = tunnel.get('public_url', '')
+            addr = tunnel.get('config', {}).get('addr', '')
+
+            if 'ml-api' in name and '5000' in addr:
+                services['ml-api'] = url
+            elif 'ml-local' in name and '5003' in addr:
+                services['ml-local'] = url
+            elif 'prometheus' in name and '5006' in addr:
+                services['prometheus'] = url
+            elif 'grafana' in name and '5007' in addr:
+                services['grafana'] = url
+
+    if services.get('ml-api'):
+        print(f'  🎨 CLIP Model (API):     {services[\"ml-api\"]}')
+    if services.get('ml-local'):
+        print(f'  🎤 Wav2Vec2 (Local):     {services[\"ml-local\"]}')
+    if services.get('prometheus'):
+        print(f'  📊 Prometheus:           {services[\"prometheus\"]}')
+    if services.get('grafana'):
+        print(f'  📈 Grafana:              {services[\"grafana\"]}')
+
+except Exception as e:
+    print(f'  Error: {e}')
+"
+
+    echo
+    echo -e "${BLUE}========================================${NC}"
+
+    # Test if services are responding
+    echo
+    echo -e "${YELLOW}Testing service connectivity...${NC}"
+
+    for port in 5000 5003 5006 5007; do
+        if timeout 2 curl -s -o /dev/null http://localhost:$port; then
+            echo -e "  Port $port: ${GREEN}✓ Service responding${NC}"
+        else
+            echo -e "  Port $port: ${RED}✗ Service not responding${NC}"
+        fi
+    done
+
+else
+    echo -e "${RED}✗ Ngrok failed to start${NC}"
+    echo "Check ngrok-group4.log for errors"
+    tail -20 ngrok-group4.log
+fi
+
+echo
+echo -e "${GREEN}Done! Your services should be accessible at:${NC}"
+echo -e "${YELLOW}  https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
+
+REMOTE_SCRIPT
