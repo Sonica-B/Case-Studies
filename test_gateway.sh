@@ -45,7 +45,7 @@ fi
 
 echo
 echo -e "${YELLOW}Test 2: Checking gateway health...${NC}"
-GATEWAY_HEALTH=$(curl -s http://localhost:8000/health 2>/dev/null)
+GATEWAY_HEALTH=$(curl -s http://localhost:5009/health 2>/dev/null)
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Gateway is responding${NC}"
@@ -58,12 +58,12 @@ echo
 echo -e "${YELLOW}Test 3: Testing model toggle...${NC}"
 
 # Get current model preference
-CURRENT_MODEL=$(curl -s http://localhost:8000/health 2>/dev/null | python3 -c "import json, sys; print(json.load(sys.stdin).get('current_model', 'unknown'))" 2>/dev/null)
+CURRENT_MODEL=$(curl -s http://localhost:5009/health 2>/dev/null | python3 -c "import json, sys; print(json.load(sys.stdin).get('current_model', 'unknown'))" 2>/dev/null)
 echo -e "Current model: ${BLUE}$CURRENT_MODEL${NC}"
 
 # Toggle the model
 echo "Toggling model..."
-TOGGLE_RESPONSE=$(curl -s -X POST http://localhost:8000/toggle 2>/dev/null)
+TOGGLE_RESPONSE=$(curl -s -X POST http://localhost:5009/toggle 2>/dev/null)
 NEW_MODEL=$(echo "$TOGGLE_RESPONSE" | python3 -c "import json, sys; print(json.load(sys.stdin).get('model', 'unknown'))" 2>/dev/null)
 
 if [ "$NEW_MODEL" != "$CURRENT_MODEL" ] && [ "$NEW_MODEL" != "unknown" ]; then
@@ -74,14 +74,14 @@ fi
 
 # Toggle back
 sleep 1
-curl -s -X POST http://localhost:8000/toggle > /dev/null 2>&1
+curl -s -X POST http://localhost:5009/toggle > /dev/null 2>&1
 echo "Toggled back to original model"
 
 echo
 echo -e "${YELLOW}Test 4: Testing proxy functionality...${NC}"
 
 # Test if the proxy forwards requests correctly
-TEST_URL="http://localhost:8000/app"
+TEST_URL="http://localhost:5009/app"
 RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" $TEST_URL 2>/dev/null)
 
 if [ "$RESPONSE_CODE" = "200" ] || [ "$RESPONSE_CODE" = "302" ]; then
@@ -129,7 +129,7 @@ echo
 echo -e "${YELLOW}Test 6: Cookie persistence test...${NC}"
 
 # Make request with cookie
-COOKIE_TEST=$(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt http://localhost:8000/ 2>/dev/null | grep -o "model_preference" | head -1)
+COOKIE_TEST=$(curl -s -c /tmp/cookies.txt -b /tmp/cookies.txt http://localhost:5009/ 2>/dev/null | grep -o "model_preference" | head -1)
 
 if [ -n "$COOKIE_TEST" ]; then
     echo -e "${GREEN}✅ Cookie-based preference works${NC}"

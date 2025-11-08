@@ -4,14 +4,13 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install dependencies
-RUN pip install flask requests gradio
+RUN pip install flask requests
 
-# Copy gateway code from fusion-app directory
+# Copy only the smart proxy (we don't need unified_gateway.py)
 COPY fusion-app/smart_proxy.py .
-COPY fusion-app/unified_gateway.py .
 
-# Expose port
-EXPOSE 8000
+# Expose port 5009 (within GROUP4's allocated range)
+EXPOSE 5009
 
-# Default to smart proxy (can override to use unified_gateway.py)
+# Run the smart proxy
 CMD ["python", "smart_proxy.py"]

@@ -13,7 +13,7 @@ services:
       dockerfile: Dockerfile.gateway
     image: group4-gateway:latest
     ports:
-      - "8000:8000"  # Gateway main port
+      - "5009:5009"  # Gateway on port 5009 (within GROUP4's range)
     environment:
       - PYTHONUNBUFFERED=1
       - API_SERVICE_URL=http://localhost:5000
@@ -24,7 +24,7 @@ services:
       - "group4.service=gateway"
       - "group4.description=Smart proxy with model toggle"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5009/health"]
       interval: 30s
       timeout: 10s
       retries: 3

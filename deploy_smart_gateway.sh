@@ -21,7 +21,7 @@ echo -e "${GREEN}   SMART GATEWAY DEPLOYMENT${NC}"
 echo -e "${GREEN}======================================${NC}"
 echo
 echo -e "${YELLOW}Architecture:${NC}"
-echo "• Single ngrok endpoint (port 8000)"
+echo "• Single ngrok endpoint (port 5009)"
 echo "• Smart proxy with model toggle"
 echo "• Both ML models running in background"
 echo "• Cookie-based session persistence"
@@ -63,16 +63,15 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # Install dependencies
-RUN pip install flask requests gradio
+RUN pip install flask requests
 
-# Copy gateway code from fusion-app directory
+# Copy only the smart proxy
 COPY fusion-app/smart_proxy.py .
-COPY fusion-app/unified_gateway.py .
 
-# Expose port
-EXPOSE 8000
+# Expose port 5009 (within GROUP4's allocated range)
+EXPOSE 5009
 
-# Default to smart proxy (can override to use unified_gateway.py)
+# Run the smart proxy
 CMD ["python", "smart_proxy.py"]
 EOF
 
@@ -105,9 +104,9 @@ web_addr: 127.0.0.1:5008
 tunnels:
   gateway:
     proto: http
-    addr: 8000
+    addr: 5009
     hostname: unremounted-unejective-tracey.ngrok-free.dev
-    host_header: "localhost:8000"
+    host_header: "localhost:5009"
     inspect: false
 EOF
 
@@ -118,12 +117,12 @@ sleep 5
 echo -e "${YELLOW}Step 7: Verifying deployment...${NC}"
 
 # Check gateway health
-if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+if curl -s http://localhost:5009/health > /dev/null 2>&1; then
     echo -e "${GREEN}✅ Gateway is running${NC}"
 
     # Show health status
     echo -e "${BLUE}Gateway health status:${NC}"
-    curl -s http://localhost:8000/health | python3 -m json.tool
+    curl -s http://localhost:5009/health | python3 -m json.tool
 else
     echo -e "${RED}❌ Gateway failed to start${NC}"
 fi
@@ -159,7 +158,7 @@ if [ "$1" == "--with-monitoring" ]; then
         cat > ngrok-monitoring.yml << EOF
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5009
+web_addr: 127.0.0.1:5010
 tunnels:
   grafana:
     proto: http
