@@ -9,6 +9,21 @@ SSH_KEY="$HOME/.ssh/vm"  # Your SSH key location
 PROJECT_PATH="~/Case-Studies"  # Existing cloned repo on VM
 BRANCH="cs3"  # Branch to deploy
 
+# Setup SSH command - use automation if available
+if [ -f "$HOME/.ssh_group4_connect.sh" ]; then
+    SSH_CMD="$HOME/.ssh_group4_connect.sh"
+    echo "✨ Using SSH automation (no passphrase needed)..."
+elif [ -f "$HOME/.ssh_group4_login.exp" ] && command -v expect &> /dev/null; then
+    SSH_CMD() {
+        expect "$HOME/.ssh_group4_login.exp" "$@"
+    }
+    echo "✨ Using expect for SSH automation..."
+else
+    SSH_CMD() {
+        ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "$@"
+    }
+fi
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -49,15 +64,28 @@ print_color "$GREEN" "Using tokens from VM's ~/.envrc file"
 # Step 1: Test SSH connection
 print_header "Testing SSH Connection"
 print_color "$GREEN" "Connecting to VM..."
-if ssh -i "$SSH_KEY" -o ConnectTimeout=10 -p $VM_PORT $VM_USER@$VM_HOST "echo 'Connection successful'" 2>/dev/null; then
-    print_color "$GREEN" "✅ SSH connection successful"
+if [ -f "$HOME/.ssh_group4_connect.sh" ]; then
+    # Use automation script
+    if $SSH_CMD "echo 'Connection successful'" 2>/dev/null; then
+        print_color "$GREEN" "✅ SSH connection successful"
+    else
+        print_color "$RED" "❌ SSH connection failed"
+        print_color "$YELLOW" "Please check your SSH automation setup"
+        exit 1
+    fi
 else
-    print_color "$RED" "❌ SSH connection failed"
-    print_color "$YELLOW" "Please check:"
-    echo "  - SSH key exists and has correct permissions"
-    echo "  - VPN is connected (if off-campus)"
-    echo "  - Password for SSH key (if protected)"
-    exit 1
+    # Use regular SSH
+    if ssh -i "$SSH_KEY" -o ConnectTimeout=10 -p $VM_PORT $VM_USER@$VM_HOST "echo 'Connection successful'" 2>/dev/null; then
+        print_color "$GREEN" "✅ SSH connection successful"
+    else
+        print_color "$RED" "❌ SSH connection failed"
+        print_color "$YELLOW" "Please check:"
+        echo "  - SSH key exists and has correct permissions"
+        echo "  - VPN is connected (if off-campus)"
+        echo "  - Password for SSH key (if protected)"
+        echo "  - Or run ./setup_tokens.sh to configure SSH automation"
+        exit 1
+    fi
 fi
 
 # Step 2: Update code from GitHub
