@@ -440,33 +440,41 @@ curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
+    tunnels = data.get('tunnels', [])
+
     print('\\n🌐 PUBLIC URLs (Share these):')
     print('=' * 40)
 
-    # Look for tunnels by name (ml-api, ml-local, etc.)
-    for tunnel in data.get('tunnels', []):
-        name = tunnel.get('name', 'unknown')
-        url = tunnel.get('public_url', 'N/A')
-        proto = tunnel.get('proto', '')
+    # Collect unique HTTPS URLs only
+    urls_by_service = {}
+    for tunnel in tunnels:
+        if tunnel.get('proto') == 'https':
+            name = tunnel.get('name', '')
+            url = tunnel.get('public_url', '')
 
-        # Only show HTTPS URLs
-        if proto == 'https':
-            if 'ml-api' in name:
-                print(f'🎨 CLIP Model (API): {url}')
-            elif 'ml-local' in name:
-                print(f'🎤 Wav2Vec2 (Local): {url}')
-            elif 'prometheus' in name:
-                print(f'📊 Prometheus: {url}')
-            elif 'grafana' in name:
-                print(f'📈 Grafana: {url}')
+            # Store URL for each service (avoid duplicates)
+            if 'ml-api' in name and 'ml-api' not in urls_by_service:
+                urls_by_service['ml-api'] = url
+            elif 'ml-local' in name and 'ml-local' not in urls_by_service:
+                urls_by_service['ml-local'] = url
+            elif 'grafana' in name and 'grafana' not in urls_by_service:
+                urls_by_service['grafana'] = url
 
-    # Show if permanent domain is being used
-    for tunnel in data.get('tunnels', []):
-        if 'unremounted-unejective-tracey' in tunnel.get('public_url', ''):
-            print('\\n✅ Using your permanent domain!')
-            break
+    # Display each service with its unique URL
+    if 'ml-api' in urls_by_service:
+        print(f'🎨 CLIP Model (API): {urls_by_service[\"ml-api\"]}')
+    if 'ml-local' in urls_by_service:
+        print(f'🎤 Wav2Vec2 (Local): {urls_by_service[\"ml-local\"]}')
+    if 'grafana' in urls_by_service:
+        print(f'📈 Grafana: {urls_by_service[\"grafana\"]}')
+
+    # Verify permanent domain
+    if 'ml-api' in urls_by_service and 'unremounted-unejective-tracey' in urls_by_service['ml-api']:
+        print('\\n✅ Using your permanent domain for ML-API!')
 
     print('=' * 40)
+    print('\\nNote: Each service has a UNIQUE URL')
+
 except Exception as e:
     print(f'Could not fetch ngrok URLs: {e}')
     print('Check ngrok-group4.log for details')

@@ -132,32 +132,36 @@ try:
     data = json.load(sys.stdin)
     services = {}
 
+    # Collect unique HTTPS URLs
     for tunnel in data.get('tunnels', []):
         if tunnel.get('proto') == 'https':
             name = tunnel.get('name', '')
             url = tunnel.get('public_url', '')
-            addr = tunnel.get('config', {}).get('addr', '')
 
-            if 'ml-api' in name and '5000' in addr:
+            # Map to service, avoid duplicates
+            if 'ml-api' in name and 'ml-api' not in services:
                 services['ml-api'] = url
-            elif 'ml-local' in name and '5003' in addr:
+            elif 'ml-local' in name and 'ml-local' not in services:
                 services['ml-local'] = url
-            elif 'prometheus' in name and '5006' in addr:
-                services['prometheus'] = url
-            elif 'grafana' in name and '5007' in addr:
+            elif 'grafana' in name and 'grafana' not in services:
                 services['grafana'] = url
 
+    # Display each with its unique URL
     if services.get('ml-api'):
         print(f'  🎨 CLIP Model (API):     {services[\"ml-api\"]}')
     if services.get('ml-local'):
         print(f'  🎤 Wav2Vec2 (Local):     {services[\"ml-local\"]}')
-    if services.get('prometheus'):
-        print(f'  📊 Prometheus:           {services[\"prometheus\"]}')
     if services.get('grafana'):
-        print(f'  📈 Grafana:              {services[\"grafana\"]}')
+        print(f'  📈 Grafana Dashboard:    {services[\"grafana\"]}')
+
+    print()
+    if len(services) == 3:
+        print('  ✅ All 3 services have unique URLs!')
+    else:
+        print(f'  ⚠️  Only {len(services)} services detected')
 
 except Exception as e:
-    print(f'  Error: {e}')
+    print(f'  Error parsing URLs: {e}')
 "
 
     echo

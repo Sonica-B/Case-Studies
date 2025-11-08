@@ -24,6 +24,9 @@ NGROK_DOMAIN="unremounted-unejective-tracey.ngrok-free.dev"
 # GROUP4's unique ngrok web interface port (within allocated range)
 GROUP4_NGROK_PORT="5008"
 
+# Optional: Teammate's token for extra endpoints
+TEAMMATE_NGROK_TOKEN="${1:-}"  # Pass as first argument
+
 echo -e "${RED}======================================${NC}"
 echo -e "${RED}   FIXING GROUP4 NGROK CONFIGURATION${NC}"
 echo -e "${RED}======================================${NC}"
@@ -143,6 +146,31 @@ if ! ps -p $NGROK_PID > /dev/null; then
     exit 1
 fi
 
+# If teammate token provided, start second ngrok for Prometheus
+TEAMMATE_TOKEN="$TEAMMATE_NGROK_TOKEN"
+if [ -n "\$TEAMMATE_TOKEN" ]; then
+    echo
+    echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token...${NC}"
+
+    # Create config for Prometheus only (staying under 3 endpoint limit)
+    cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+version: "2"
+authtoken: \$TEAMMATE_TOKEN
+web_addr: 127.0.0.1:5009
+tunnels:
+  prometheus:
+    proto: http
+    addr: 5006
+    inspect: false
+NGROK_TEAMMATE
+
+    # Start second ngrok process
+    nohup ngrok start --all --config ngrok-prometheus.yml > ngrok-prometheus.log 2>&1 &
+    NGROK2_PID=\$!
+    echo "Started Prometheus ngrok with PID: \$NGROK2_PID on port 5009"
+    sleep 5
+fi
+
 echo -e "${YELLOW}Step 4: Verifying ngrok is running correctly...${NC}"
 
 # Check ngrok status
@@ -162,54 +190,83 @@ try:
     data = json.load(sys.stdin)
     tunnels = data.get('tunnels', [])
 
-    # Group by service
-    services = {}
+    # Debug: Show raw tunnel count
+    print(f'Found {len(tunnels)} total tunnels (HTTP + HTTPS)')
+    print()
+
+    # Collect unique HTTPS URLs
+    urls_by_service = {}
     for tunnel in tunnels:
         if tunnel.get('proto') == 'https':
-            name = tunnel.get('name', 'unknown')
+            name = tunnel.get('name', '')
             url = tunnel.get('public_url', '')
             addr = tunnel.get('config', {}).get('addr', '')
 
+            # Map to service based on name
             if 'ml-api' in name:
-                services['ml-api'] = (url, addr)
+                urls_by_service['ml-api'] = url
             elif 'ml-local' in name:
-                services['ml-local'] = (url, addr)
-            elif 'prometheus' in name:
-                services['prometheus'] = (url, addr)
+                urls_by_service['ml-local'] = url
             elif 'grafana' in name:
-                services['grafana'] = (url, addr)
+                urls_by_service['grafana'] = url
 
-    # Display with correct names
-    if 'ml-api' in services:
+    # Display each service with its UNIQUE URL
+    print('🌐 PUBLIC URLs (Each is unique!):')
+    print('=' * 50)
+
+    if 'ml-api' in urls_by_service:
         print(f'🎨 CLIP Model (port 5000):')
-        print(f'   {services[\"ml-api\"][0]}')
-        print()
-    if 'ml-local' in services:
-        print(f'🎤 Wav2Vec2 Model (port 5003):')
-        print(f'   {services[\"ml-local\"][0]}')
-        print()
-    if 'prometheus' in services:
-        print(f'📊 Prometheus (port 5006):')
-        print(f'   {services[\"prometheus\"][0]}')
-        print()
-    if 'grafana' in services:
-        print(f'📈 Grafana (port 5007):')
-        print(f'   {services[\"grafana\"][0]}')
+        print(f'   {urls_by_service[\"ml-api\"]}')
         print()
 
-    # Check if main domain is correct
-    for tunnel in tunnels:
-        if 'unremounted-unejective-tracey' in tunnel.get('public_url', ''):
-            print('✅ Using your permanent domain correctly!')
-            break
+    if 'ml-local' in urls_by_service:
+        print(f'🎤 Wav2Vec2 Model (port 5003):')
+        print(f'   {urls_by_service[\"ml-local\"]}')
+        print()
+
+    if 'grafana' in urls_by_service:
+        print(f'📈 Grafana Dashboard (port 5007):')
+        print(f'   {urls_by_service[\"grafana\"]}')
+        print()
+
+    print('=' * 50)
+
+    # Verify permanent domain is used for ml-api
+    if 'ml-api' in urls_by_service and 'unremounted-unejective-tracey' in urls_by_service['ml-api']:
+        print('✅ ML-API using your permanent domain!')
     else:
-        print('⚠️  Permanent domain not found in URLs')
+        print('⚠️  ML-API not using permanent domain')
+
+    # Show that others get random domains
+    random_count = sum(1 for url in urls_by_service.values() if 'ngrok-free.app' in url)
+    if random_count > 0:
+        print(f'✅ {random_count} services using random ngrok URLs')
 
 except Exception as e:
     print(f'Error parsing tunnels: {e}')
+    print('Raw response:')
+    import subprocess
+    subprocess.run(['curl', '-s', 'http://localhost:' + str($GROUP4_NGROK_PORT) + '/api/tunnels'])
 "
 
     echo -e "${BLUE}========================================${NC}"
+
+    # Check second ngrok if running
+    if [ -n "\$TEAMMATE_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+        echo
+        echo -e "${BLUE}Teammate's Ngrok (Prometheus):${NC}"
+        curl -s http://localhost:5009/api/tunnels | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for tunnel in data.get('tunnels', []):
+        if tunnel.get('proto') == 'https':
+            print(f'  📊 Prometheus: {tunnel.get(\"public_url\")}')
+            break
+except: pass
+"
+        echo -e "${BLUE}========================================${NC}"
+    fi
 else
     echo -e "${RED}✗ Ngrok API not responding${NC}"
     echo "Check ngrok-group4.log for errors"
@@ -244,9 +301,18 @@ echo "Your services are now accessible at:"
 echo -e "${YELLOW}https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
 echo
 echo "Notes:"
-echo "  • Port 4044 is the ngrok web interface (this is correct)"
+echo "  • Your ngrok: Port 5008 (ML-API, ML-Local, Grafana)"
+if [ -n "\$TEAMMATE_TOKEN" ]; then
+    echo "  • Teammate ngrok: Port 5009 (Prometheus)"
+    echo "  • Total endpoints: 4 (bypassed 3-endpoint limit!)"
+fi
 echo "  • Your services run on ports 5000-5007"
-echo "  • Ngrok routes external traffic to these ports"
 echo
 
 REMOTE_FIX
+
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
+    echo
+    echo -e "${GREEN}Usage with teammate token:${NC}"
+    echo "  ./fix_ngrok_config.sh \"teammate_token_here\""
+fi

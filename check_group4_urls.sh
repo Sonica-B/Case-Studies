@@ -139,7 +139,8 @@ else
     echo -e "${RED}❌ GROUP4 ngrok is not running on port $GROUP4_NGROK_PORT${NC}"
     echo
     echo -e "${YELLOW}To start GROUP4 ngrok, run:${NC}"
-    echo "  ./fix_all_ngrok_issues.sh"
+    echo "  ./fix_ngrok_config.sh"
+    echo "  Or with teammate token: ./fix_ngrok_config.sh \"teammate_token_here\""
     echo
     echo -e "${YELLOW}Checking for conflicts on other ports:${NC}"
 
@@ -155,6 +156,23 @@ else
     else
         echo "  No ngrok found on port 4040 either."
     fi
+fi
+
+# Check for second ngrok on port 5009 (teammate's account)
+echo
+if curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Second ngrok running on port 5009 (teammate account)${NC}"
+    echo -e "${BLUE}Prometheus URL:${NC}"
+    curl -s http://localhost:5009/api/tunnels | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for tunnel in data.get('tunnels', []):
+        if tunnel.get('proto') == 'https':
+            print(f'  📊 Prometheus: {tunnel.get(\"public_url\")}')
+            break
+except: pass
+"
 fi
 
 echo
