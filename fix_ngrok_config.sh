@@ -3,6 +3,22 @@
 # ============================================================================
 # FIX NGROK CONFIGURATION FOR GROUP4
 # This script kills the misconfigured ngrok and restarts with correct config
+#
+# USAGE:
+#   Basic (your ngrok only, 3 services):
+#     ./fix_ngrok_config.sh
+#
+#   With teammate's token (4 services with random URL for Prometheus):
+#     ./fix_ngrok_config.sh "teammate_ngrok_token_here"
+#
+#   With teammate's token AND domain (4 services, both with permanent URLs):
+#     ./fix_ngrok_config.sh "teammate_token" "decayless-brenna-unadventurous.ngrok-free.dev"
+#
+# RESULT:
+#   - Your ngrok (port 5008): ML-API, ML-Local, Grafana
+#   - Your permanent domain: unremounted-unejective-tracey.ngrok-free.dev
+#   - Teammate ngrok (port 5009): Prometheus
+#   - Teammate domain: decayless-brenna-unadventurous.ngrok-free.dev
 # ============================================================================
 
 # Colors
@@ -26,6 +42,7 @@ GROUP4_NGROK_PORT="5008"
 
 # Optional: Teammate's token for extra endpoints
 TEAMMATE_NGROK_TOKEN="${1:-}"  # Pass as first argument
+TEAMMATE_NGROK_DOMAIN="${2:-}"  # Pass teammate's domain as second argument (optional)
 
 echo -e "${RED}======================================${NC}"
 echo -e "${RED}   FIXING GROUP4 NGROK CONFIGURATION${NC}"
@@ -33,9 +50,18 @@ echo -e "${RED}======================================${NC}"
 echo
 echo -e "${YELLOW}Port 4044 is used by other teams. GROUP4 will use port ${GROUP4_NGROK_PORT}${NC}"
 echo -e "${GREEN}Will configure domain: $NGROK_DOMAIN${NC}"
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
+    echo -e "${GREEN}Will also use teammate's domain: $TEAMMATE_NGROK_DOMAIN${NC}"
+fi
 echo
 
-ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'REMOTE_FIX'
+# Pass teammate credentials to the SSH session as environment variables
+export TEAMMATE_NGROK_TOKEN
+export TEAMMATE_NGROK_DOMAIN
+ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST \
+    TEAMMATE_TOKEN="$TEAMMATE_NGROK_TOKEN" \
+    TEAMMATE_DOMAIN="$TEAMMATE_NGROK_DOMAIN" \
+    bash << 'REMOTE_FIX'
 
 # Colors for remote
 RED='\033[0;31m'
@@ -147,15 +173,31 @@ if ! ps -p $NGROK_PID > /dev/null; then
 fi
 
 # If teammate token provided, start second ngrok for Prometheus
-TEAMMATE_TOKEN="$TEAMMATE_NGROK_TOKEN"
-if [ -n "\$TEAMMATE_TOKEN" ]; then
+# TEAMMATE_TOKEN and TEAMMATE_DOMAIN are already set from SSH environment
+if [ -n "$TEAMMATE_TOKEN" ]; then
     echo
     echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token...${NC}"
 
     # Create config for Prometheus only (staying under 3 endpoint limit)
-    cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+    if [ -n "$TEAMMATE_DOMAIN" ]; then
+        echo "Using teammate's permanent domain: $TEAMMATE_DOMAIN"
+        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
 version: "2"
-authtoken: \$TEAMMATE_TOKEN
+authtoken: $TEAMMATE_TOKEN
+web_addr: 127.0.0.1:5009
+tunnels:
+  prometheus:
+    proto: http
+    addr: 5006
+    hostname: $TEAMMATE_DOMAIN
+    host_header: "localhost:5006"
+    inspect: false
+NGROK_TEAMMATE
+    else
+        # No domain provided, will get random URL
+        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+version: "2"
+authtoken: $TEAMMATE_TOKEN
 web_addr: 127.0.0.1:5009
 tunnels:
   prometheus:
@@ -163,11 +205,12 @@ tunnels:
     addr: 5006
     inspect: false
 NGROK_TEAMMATE
+    fi
 
     # Start second ngrok process
     nohup ngrok start --all --config ngrok-prometheus.yml > ngrok-prometheus.log 2>&1 &
-    NGROK2_PID=\$!
-    echo "Started Prometheus ngrok with PID: \$NGROK2_PID on port 5009"
+    NGROK2_PID=$!
+    echo "Started Prometheus ngrok with PID: $NGROK2_PID on port 5009"
     sleep 5
 fi
 
@@ -252,7 +295,7 @@ except Exception as e:
     echo -e "${BLUE}========================================${NC}"
 
     # Check second ngrok if running
-    if [ -n "\$TEAMMATE_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+    if [ -n "$TEAMMATE_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
         echo
         echo -e "${BLUE}Teammate's Ngrok (Prometheus):${NC}"
         curl -s http://localhost:5009/api/tunnels | python3 -c "
@@ -302,7 +345,7 @@ echo -e "${YELLOW}https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
 echo
 echo "Notes:"
 echo "  • Your ngrok: Port 5008 (ML-API, ML-Local, Grafana)"
-if [ -n "\$TEAMMATE_TOKEN" ]; then
+if [ -n "$TEAMMATE_TOKEN" ]; then
     echo "  • Teammate ngrok: Port 5009 (Prometheus)"
     echo "  • Total endpoints: 4 (bypassed 3-endpoint limit!)"
 fi
@@ -311,8 +354,24 @@ echo
 
 REMOTE_FIX
 
+echo
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}Script completed successfully!${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo
+echo "Usage:"
+echo "  Without teammate: ./fix_ngrok_config.sh"
+echo "  With teammate token: ./fix_ngrok_config.sh \"teammate_token\""
+echo "  With teammate domain: ./fix_ngrok_config.sh \"teammate_token\" \"decayless-brenna-unadventurous.ngrok-free.dev\""
+echo
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
-    echo
-    echo -e "${GREEN}Usage with teammate token:${NC}"
-    echo "  ./fix_ngrok_config.sh \"teammate_token_here\""
+    echo -e "${GREEN}✅ Teammate configuration detected:${NC}"
+    echo "  Token: Provided"
+    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+        echo "  Domain: $TEAMMATE_NGROK_DOMAIN"
+        echo "  Result: Prometheus will use permanent domain"
+    else
+        echo "  Domain: Not provided"
+        echo "  Result: Prometheus will get random ngrok URL"
+    fi
 fi
