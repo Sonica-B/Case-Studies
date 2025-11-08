@@ -95,6 +95,7 @@ fi
 GROUP4_NGROK_PORT=5008
 
 # Create the CORRECT ngrok configuration
+# NOTE: Free plan limited to 3 endpoints - using only essential services
 cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -108,9 +109,6 @@ tunnels:
   ml-local:
     proto: http
     addr: 5003
-  prometheus:
-    proto: http
-    addr: 5006
   grafana:
     proto: http
     addr: 5007

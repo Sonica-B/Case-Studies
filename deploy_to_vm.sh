@@ -403,6 +403,7 @@ fi
 GROUP4_NGROK_PORT=5008
 
 # Create ngrok config for GROUP4 with permanent domain
+# NOTE: Free plan limited to 3 endpoints - using only essential services
 cat > ngrok-group4.yml << NGROK_EOF
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -417,10 +418,6 @@ tunnels:
   ml-local:
     proto: http
     addr: 5003
-    inspect: false
-  prometheus:
-    proto: http
-    addr: 5006
     inspect: false
   grafana:
     proto: http
