@@ -96,6 +96,7 @@ GROUP4_NGROK_PORT=5008
 
 # Create the CORRECT ngrok configuration
 # NOTE: Free plan limited to 3 endpoints - using only essential services
+# IMPORTANT: Only ml-api uses the permanent domain; others get random URLs
 cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -106,12 +107,15 @@ tunnels:
     addr: 5000
     hostname: unremounted-unejective-tracey.ngrok-free.dev
     host_header: "localhost:5000"
+    inspect: false
   ml-local:
     proto: http
     addr: 5003
+    inspect: false
   grafana:
     proto: http
     addr: 5007
+    inspect: false
 NGROK_CONFIG
 
 echo -e "${GREEN}✅ Created correct ngrok configuration${NC}"

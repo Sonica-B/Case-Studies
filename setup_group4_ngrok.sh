@@ -78,6 +78,7 @@ echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
 
 # Create proper ngrok config for GROUP4 with permanent domain
 # NOTE: Free plan limited to 3 endpoints - using only essential services
+# IMPORTANT: Only ml-api uses the permanent domain; others get random URLs
 cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -88,12 +89,15 @@ tunnels:
     addr: 5000
     hostname: unremounted-unejective-tracey.ngrok-free.dev
     host_header: "localhost:5000"
+    inspect: false
   ml-local:
     proto: http
     addr: 5003
+    inspect: false
   grafana:
     proto: http
     addr: 5007
+    inspect: false
 NGROK_CONFIG
 
 echo -e "${YELLOW}Starting ngrok with GROUP4 configuration...${NC}"

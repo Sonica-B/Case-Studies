@@ -404,6 +404,7 @@ GROUP4_NGROK_PORT=5008
 
 # Create ngrok config for GROUP4 with permanent domain
 # NOTE: Free plan limited to 3 endpoints - using only essential services
+# IMPORTANT: Only ml-api uses the permanent domain; others get random URLs
 cat > ngrok-group4.yml << NGROK_EOF
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
