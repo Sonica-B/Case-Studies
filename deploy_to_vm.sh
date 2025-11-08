@@ -48,6 +48,14 @@ print_color "$YELLOW" "VM Host: $VM_HOST:$VM_PORT"
 print_color "$YELLOW" "Username: $VM_USER"
 print_color "$YELLOW" "Project: $PROJECT_PATH"
 print_color "$YELLOW" "Branch: $BRANCH"
+
+# Check if teammate token is configured
+if ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "[ -f ~/.envrc ] && source ~/.envrc && [ -n \"\$TEAMMATE_NGROK_TOKEN\" ] && echo 'yes'" 2>/dev/null | grep -q "yes"; then
+    print_color "$GREEN" "✅ Teammate ngrok configured (4 services will be exposed)"
+else
+    print_color "$YELLOW" "⚠️  No teammate ngrok configured (only 3 services will be exposed)"
+    print_color "$YELLOW" "   Run ./setup_tokens.sh to add teammate's token"
+fi
 print_color "$YELLOW" "SSH Key: $SSH_KEY"
 
 # Check SSH key exists
@@ -135,6 +143,8 @@ fi
 cat > .env << ENV_FILE
 HF_TOKEN=\${HF_TOKEN}
 NGROK_AUTHTOKEN=\${NGROK_AUTHTOKEN}
+TEAMMATE_NGROK_TOKEN=\${TEAMMATE_NGROK_TOKEN}
+TEAMMATE_NGROK_DOMAIN=\${TEAMMATE_NGROK_DOMAIN}
 
 # Port configuration
 API_GRADIO_PORT=5000
@@ -269,6 +279,8 @@ if [ -f ~/.envrc ]; then
     source ~/.envrc
     export HF_TOKEN
     export NGROK_AUTHTOKEN
+    export TEAMMATE_NGROK_TOKEN
+    export TEAMMATE_NGROK_DOMAIN
 fi
 
 # Start ONLY GROUP4 services explicitly
@@ -433,6 +445,46 @@ sleep 8
 # Save port configuration for other scripts
 echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
 
+# Start teammate's ngrok for Prometheus if token is available
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
+    echo ""
+    echo "Setting up teammate's ngrok for Prometheus..."
+
+    # Create config for Prometheus with teammate's token
+    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+        echo "Using teammate's permanent domain: $TEAMMATE_NGROK_DOMAIN"
+        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+version: "2"
+authtoken: $TEAMMATE_NGROK_TOKEN
+web_addr: 127.0.0.1:5009
+tunnels:
+  prometheus:
+    proto: http
+    addr: 5006
+    hostname: $TEAMMATE_NGROK_DOMAIN
+    host_header: "localhost:5006"
+    inspect: false
+NGROK_TEAMMATE
+    else
+        # No domain, will get random URL
+        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+version: "2"
+authtoken: $TEAMMATE_NGROK_TOKEN
+web_addr: 127.0.0.1:5009
+tunnels:
+  prometheus:
+    proto: http
+    addr: 5006
+    inspect: false
+NGROK_TEAMMATE
+    fi
+
+    # Start second ngrok process on port 5009
+    nohup ngrok start --all --config ngrok-prometheus.yml > ngrok-prometheus.log 2>&1 &
+    echo "Started teammate's ngrok for Prometheus on port 5009"
+    sleep 5
+fi
+
 # Get URLs
 echo ""
 echo "Fetching GROUP4 Ngrok public URLs..."
@@ -479,6 +531,22 @@ except Exception as e:
     print(f'Could not fetch ngrok URLs: {e}')
     print('Check ngrok-group4.log for details')
 "
+
+# Check teammate's ngrok for Prometheus if running
+if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+    echo ""
+    echo "Teammate's Ngrok (Prometheus):"
+    curl -s http://localhost:5009/api/tunnels | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for tunnel in data.get('tunnels', []):
+        if tunnel.get('proto') == 'https':
+            print(f'  📊 Prometheus: {tunnel.get(\"public_url\")}')
+            break
+except: pass
+"
+fi
 EOF
 
 # Final summary
@@ -502,6 +570,15 @@ echo "   ./ssh_tunnel.sh $VM_USER"
 echo "   Then use: http://localhost:5000, etc."
 echo
 print_color "$YELLOW" "Port Range: 5000-5009"
-print_color "$YELLOW" "GROUP4 ngrok web interface: Port 5008 (avoiding conflicts with port 4044)"
-print_color "$YELLOW" "To check GROUP4 ngrok status on VM: ssh to VM and run 'curl http://localhost:5008/api/tunnels'"
+print_color "$YELLOW" "Your ngrok web interface: Port 5008 (ML-API, ML-Local, Grafana)"
+
+# Check if teammate token was loaded
+if ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "[ -f ~/.envrc ] && source ~/.envrc && [ -n \"\$TEAMMATE_NGROK_TOKEN\" ] && echo 'yes'" 2>/dev/null | grep -q "yes"; then
+    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5009 (Prometheus)"
+    print_color "$GREEN" "✅ All 4 services exposed (bypassed 3-endpoint limit!)"
+else
+    print_color "$YELLOW" "Note: Prometheus not exposed (no teammate token configured)"
+fi
+
+print_color "$YELLOW" "To check ngrok status on VM: ssh to VM and run 'curl http://localhost:5008/api/tunnels'"
 echo

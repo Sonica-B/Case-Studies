@@ -63,6 +63,18 @@ if [ -z "$NGROK_AUTHTOKEN" ]; then
     echo -e "${YELLOW}Warning: No Ngrok token provided. You may have limited functionality.${NC}"
 fi
 
+echo
+echo -e "${YELLOW}Teammate's Ngrok Configuration (for Prometheus):${NC}"
+read -p "Enter teammate's Ngrok auth token (or press Enter to skip): " TEAMMATE_NGROK_TOKEN
+if [ -z "$TEAMMATE_NGROK_TOKEN" ]; then
+    echo -e "${YELLOW}No teammate token provided. Prometheus will not be exposed.${NC}"
+else
+    echo -e "${GREEN}Teammate token will be saved for Prometheus endpoint.${NC}"
+    # Always set the teammate's permanent domain when token is provided
+    TEAMMATE_NGROK_DOMAIN="decayless-brenna-unadventurous.ngrok-free.dev"
+    echo -e "${GREEN}Using teammate's domain: $TEAMMATE_NGROK_DOMAIN${NC}"
+fi
+
 # Setup local SSH automation if passphrase provided
 if [ -n "$SSH_PASSPHRASE" ]; then
     echo
@@ -146,6 +158,10 @@ send "# GROUP4 Environment Variables\r"
 send "export HF_TOKEN=\"$HF_TOKEN\"\r"
 send "export NGROK_AUTHTOKEN=\"$NGROK_AUTHTOKEN\"\r"
 send "\r"
+send "# Teammate's Ngrok for Prometheus (4th service)\r"
+send "export TEAMMATE_NGROK_TOKEN=\"$TEAMMATE_NGROK_TOKEN\"\r"
+send "export TEAMMATE_NGROK_DOMAIN=\"$TEAMMATE_NGROK_DOMAIN\"\r"
+send "\r"
 send "# Auto-export for docker-compose\r"
 send "export DOCKER_CONTENT_TRUST=0\r"
 send "ENVRC\r"
@@ -186,6 +202,9 @@ cat > ~/.envrc << 'ENVRC'
 export HF_TOKEN="$HF_TOKEN"
 export NGROK_AUTHTOKEN="$NGROK_AUTHTOKEN"
 
+# Teammate's Ngrok for Prometheus (4th service)
+export TEAMMATE_NGROK_TOKEN="$TEAMMATE_NGROK_TOKEN"
+export TEAMMATE_NGROK_DOMAIN="$TEAMMATE_NGROK_DOMAIN"
 
 # Auto-export for docker-compose
 export DOCKER_CONTENT_TRUST=0
@@ -194,6 +213,8 @@ ENVRC
 # Replace placeholders with actual values
 sed -i "s|\$HF_TOKEN|${HF_TOKEN}|g" ~/.envrc
 sed -i "s|\$NGROK_AUTHTOKEN|${NGROK_AUTHTOKEN}|g" ~/.envrc
+sed -i "s|\$TEAMMATE_NGROK_TOKEN|${TEAMMATE_NGROK_TOKEN}|g" ~/.envrc
+sed -i "s|\$TEAMMATE_NGROK_DOMAIN|${TEAMMATE_NGROK_DOMAIN}|g" ~/.envrc
 
 # Make it secure
 chmod 600 ~/.envrc

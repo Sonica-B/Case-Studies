@@ -41,6 +41,7 @@ NGROK_DOMAIN="unremounted-unejective-tracey.ngrok-free.dev"
 GROUP4_NGROK_PORT="5008"
 
 # Optional: Teammate's token for extra endpoints
+# First check if passed as arguments
 TEAMMATE_NGROK_TOKEN="${1:-}"  # Pass as first argument
 TEAMMATE_NGROK_DOMAIN="${2:-}"  # Pass teammate's domain as second argument (optional)
 
@@ -48,20 +49,9 @@ echo -e "${RED}======================================${NC}"
 echo -e "${RED}   FIXING GROUP4 NGROK CONFIGURATION${NC}"
 echo -e "${RED}======================================${NC}"
 echo
-echo -e "${YELLOW}Port 4044 is used by other teams. GROUP4 will use port ${GROUP4_NGROK_PORT}${NC}"
-echo -e "${GREEN}Will configure domain: $NGROK_DOMAIN${NC}"
-if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
-    echo -e "${GREEN}Will also use teammate's domain: $TEAMMATE_NGROK_DOMAIN${NC}"
-fi
-echo
 
-# Pass teammate credentials to the SSH session as environment variables
-export TEAMMATE_NGROK_TOKEN
-export TEAMMATE_NGROK_DOMAIN
-ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST \
-    TEAMMATE_TOKEN="$TEAMMATE_NGROK_TOKEN" \
-    TEAMMATE_DOMAIN="$TEAMMATE_NGROK_DOMAIN" \
-    bash << 'REMOTE_FIX'
+# Simple SSH connection without complex environment variable passing
+ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'REMOTE_FIX'
 
 # Colors for remote
 RED='\033[0;31m'
@@ -71,6 +61,24 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 cd ~/Case-Studies
+
+# Source environment first to check for saved credentials
+if [ -f ~/.envrc ]; then
+    source ~/.envrc
+fi
+
+# Display configuration info
+echo -e "${GREEN}Configuration:${NC}"
+echo "  • Your domain: unremounted-unejective-tracey.ngrok-free.dev"
+echo "  • Web interface port: 5008"
+
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
+    echo "  • Teammate token: Available (from ~/.envrc)"
+    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+        echo "  • Teammate domain: $TEAMMATE_NGROK_DOMAIN"
+    fi
+fi
+echo
 
 echo -e "${YELLOW}Step 1: Killing ONLY GROUP4's ngrok processes...${NC}"
 
@@ -107,10 +115,15 @@ fi
 
 echo -e "${YELLOW}Step 2: Creating correct ngrok configuration...${NC}"
 
-# Source environment for tokens
-if [ -f ~/.envrc ]; then
-    source ~/.envrc
-    echo "Loaded environment variables"
+# Environment already loaded above, just check status
+if [ -n "$NGROK_AUTHTOKEN" ]; then
+    echo "Using your ngrok token from ~/.envrc"
+else
+    echo -e "${YELLOW}Warning: No NGROK_AUTHTOKEN found in environment${NC}"
+fi
+
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
+    echo "Using teammate's ngrok token from ~/.envrc"
 fi
 
 # Configure ngrok with token
@@ -173,23 +186,22 @@ if ! ps -p $NGROK_PID > /dev/null; then
 fi
 
 # If teammate token provided, start second ngrok for Prometheus
-# TEAMMATE_TOKEN and TEAMMATE_DOMAIN are already set from SSH environment
-if [ -n "$TEAMMATE_TOKEN" ]; then
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo
     echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token...${NC}"
 
     # Create config for Prometheus only (staying under 3 endpoint limit)
-    if [ -n "$TEAMMATE_DOMAIN" ]; then
-        echo "Using teammate's permanent domain: $TEAMMATE_DOMAIN"
+    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+        echo "Using teammate's permanent domain: $TEAMMATE_NGROK_DOMAIN"
         cat > ngrok-prometheus.yml << NGROK_TEAMMATE
 version: "2"
-authtoken: $TEAMMATE_TOKEN
+authtoken: $TEAMMATE_NGROK_TOKEN
 web_addr: 127.0.0.1:5009
 tunnels:
   prometheus:
     proto: http
     addr: 5006
-    hostname: $TEAMMATE_DOMAIN
+    hostname: $TEAMMATE_NGROK_DOMAIN
     host_header: "localhost:5006"
     inspect: false
 NGROK_TEAMMATE
@@ -197,7 +209,7 @@ NGROK_TEAMMATE
         # No domain provided, will get random URL
         cat > ngrok-prometheus.yml << NGROK_TEAMMATE
 version: "2"
-authtoken: $TEAMMATE_TOKEN
+authtoken: $TEAMMATE_NGROK_TOKEN
 web_addr: 127.0.0.1:5009
 tunnels:
   prometheus:
@@ -295,7 +307,7 @@ except Exception as e:
     echo -e "${BLUE}========================================${NC}"
 
     # Check second ngrok if running
-    if [ -n "$TEAMMATE_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+    if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
         echo
         echo -e "${BLUE}Teammate's Ngrok (Prometheus):${NC}"
         curl -s http://localhost:5009/api/tunnels | python3 -c "
@@ -345,7 +357,7 @@ echo -e "${YELLOW}https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
 echo
 echo "Notes:"
 echo "  • Your ngrok: Port 5008 (ML-API, ML-Local, Grafana)"
-if [ -n "$TEAMMATE_TOKEN" ]; then
+if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo "  • Teammate ngrok: Port 5009 (Prometheus)"
     echo "  • Total endpoints: 4 (bypassed 3-endpoint limit!)"
 fi
@@ -359,19 +371,7 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}Script completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo
-echo "Usage:"
-echo "  Without teammate: ./fix_ngrok_config.sh"
-echo "  With teammate token: ./fix_ngrok_config.sh \"teammate_token\""
-echo "  With teammate domain: ./fix_ngrok_config.sh \"teammate_token\" \"decayless-brenna-unadventurous.ngrok-free.dev\""
-echo
-if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
-    echo -e "${GREEN}✅ Teammate configuration detected:${NC}"
-    echo "  Token: Provided"
-    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
-        echo "  Domain: $TEAMMATE_NGROK_DOMAIN"
-        echo "  Result: Prometheus will use permanent domain"
-    else
-        echo "  Domain: Not provided"
-        echo "  Result: Prometheus will get random ngrok URL"
-    fi
-fi
+echo "Notes:"
+echo "  • Tokens are loaded automatically from ~/.envrc (set up via setup_tokens.sh)"
+echo "  • No need to pass tokens as arguments if already saved"
+echo "  • Your services are accessible via the URLs shown above"
