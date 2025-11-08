@@ -13,6 +13,9 @@ VM_USER="group4"
 VM_HOST="melnibone.wpi.edu"
 VM_PORT="2222"
 
+# GROUP4's ngrok web interface port (avoiding conflicts with other teams)
+GROUP4_NGROK_PORT="5008"
+
 echo -e "${BLUE}======================================${NC}"
 echo -e "${BLUE}   GROUP4 Public URLs Checker${NC}"
 echo -e "${BLUE}======================================${NC}"
@@ -30,15 +33,22 @@ NC='\033[0m'
 echo -e "${YELLOW}Checking GROUP4 ngrok status...${NC}"
 echo
 
-# Check if ngrok is running on port 4044
-if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ GROUP4 ngrok is running on port 4044${NC}"
+# Try to load saved port configuration
+if [ -f ~/.group4_ngrok_port ]; then
+    source ~/.group4_ngrok_port
+else
+    GROUP4_NGROK_PORT=5008
+fi
+
+# Check if ngrok is running on GROUP4's port
+if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ GROUP4 ngrok is running on port $GROUP4_NGROK_PORT${NC}"
     echo
     echo -e "${BLUE}Your GROUP4 Public URLs:${NC}"
     echo -e "${BLUE}========================${NC}"
 
     # Get and parse the tunnels
-    curl -s http://localhost:4044/api/tunnels | python3 -c "
+    curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
 import json
 import sys
 
@@ -97,7 +107,7 @@ except Exception as e:
     echo
 
     # Extract just the HTTPS URLs for easy copying
-    curl -s http://localhost:4044/api/tunnels | python3 -c "
+    curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
 import json
 import sys
 
@@ -126,16 +136,22 @@ except:
 "
 
 else
-    echo -e "${RED}❌ GROUP4 ngrok is not running on port 4044${NC}"
+    echo -e "${RED}❌ GROUP4 ngrok is not running on port $GROUP4_NGROK_PORT${NC}"
     echo
     echo -e "${YELLOW}To start GROUP4 ngrok, run:${NC}"
-    echo "  ./fix_group4.sh group4"
+    echo "  ./fix_all_ngrok_issues.sh"
     echo
-    echo -e "${YELLOW}Or check if it's running on default port 4040:${NC}"
+    echo -e "${YELLOW}Checking for conflicts on other ports:${NC}"
+
+    # Check if another team is using 4044
+    if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Port 4044 is in use (another team's ngrok)${NC}"
+        echo "  GROUP4 uses port $GROUP4_NGROK_PORT instead"
+    fi
 
     if curl -s http://localhost:4040/api/tunnels > /dev/null 2>&1; then
-        echo -e "${YELLOW}⚠️  Found ngrok on port 4040 (likely another team's)${NC}"
-        echo "  You should set up GROUP4's ngrok on port 4044 instead."
+        echo -e "${YELLOW}⚠️  Port 4040 is also in use (another team's ngrok)${NC}"
+        echo "  GROUP4 uses port $GROUP4_NGROK_PORT instead"
     else
         echo "  No ngrok found on port 4040 either."
     fi
@@ -155,6 +171,6 @@ echo
 echo -e "${BLUE}======================================${NC}"
 echo -e "${GREEN}Need help?${NC}"
 echo "  - To deploy: ${YELLOW}./deploy_to_vm.sh group4${NC}"
-echo "  - To fix ngrok: ${YELLOW}./fix_group4.sh group4${NC}"
-echo "  - Ngrok web UI: ${YELLOW}http://localhost:4044${NC} (via SSH tunnel)"
+echo "  - To fix ngrok: ${YELLOW}./fix_all_ngrok_issues.sh${NC}"
+echo "  - Ngrok web UI: ${YELLOW}http://localhost:$GROUP4_NGROK_PORT${NC} (via SSH tunnel)"
 echo -e "${BLUE}======================================${NC}"

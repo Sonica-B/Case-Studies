@@ -381,11 +381,11 @@ else
 fi
 
 # IMPORTANT: Only stop GROUP4's ngrok, never touch other teams'
-# Check for GROUP4 ngrok specifically (by config file or port 4044)
-if pgrep -f "ngrok.*group4|ngrok.*4044" > /dev/null; then
-    echo "Found existing GROUP4 ngrok process..."
-    # Only kill GROUP4's ngrok processes
-    for pid in $(pgrep -f "ngrok.*group4|ngrok.*4044"); do
+# Kill only processes owned by group4 user
+GROUP4_NGROK_PIDS=$(pgrep -u group4 -f ngrok)
+if [ -n "$GROUP4_NGROK_PIDS" ]; then
+    echo "Found existing GROUP4 ngrok processes..."
+    for pid in $GROUP4_NGROK_PIDS; do
         echo "  Stopping GROUP4 ngrok PID: $pid"
         kill $pid 2>/dev/null || true
     done
@@ -399,11 +399,14 @@ if pgrep -f "ngrok" | grep -v -E "group4|4044" > /dev/null; then
     echo "✅ Other teams' ngrok processes are still running"
 fi
 
+# Use GROUP4's allocated port to avoid conflicts
+GROUP4_NGROK_PORT=5008
+
 # Create ngrok config for GROUP4 with permanent domain
 cat > ngrok-group4.yml << NGROK_EOF
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
-web_addr: 127.0.0.1:4044  # GROUP4's ngrok web interface port
+web_addr: 127.0.0.1:$GROUP4_NGROK_PORT  # GROUP4's ngrok web interface port (5008)
 tunnels:
   ml-api:
     proto: http
@@ -429,10 +432,13 @@ NGROK_EOF
 nohup ngrok start --all --config ngrok-group4.yml > ngrok-group4.log 2>&1 &
 sleep 8
 
+# Save port configuration for other scripts
+echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
+
 # Get URLs
 echo ""
 echo "Fetching GROUP4 Ngrok public URLs..."
-curl -s http://localhost:4044/api/tunnels | python3 -c "
+curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -490,5 +496,6 @@ echo "   ./ssh_tunnel.sh $VM_USER"
 echo "   Then use: http://localhost:5000, etc."
 echo
 print_color "$YELLOW" "Port Range: 5000-5009"
-print_color "$YELLOW" "To check GROUP4 ngrok status on VM: ssh to VM and run 'curl http://localhost:4044/api/tunnels'"
+print_color "$YELLOW" "GROUP4 ngrok web interface: Port 5008 (avoiding conflicts with port 4044)"
+print_color "$YELLOW" "To check GROUP4 ngrok status on VM: ssh to VM and run 'curl http://localhost:5008/api/tunnels'"
 echo

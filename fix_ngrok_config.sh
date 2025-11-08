@@ -21,12 +21,15 @@ VM_PORT="2222"
 # Your permanent ngrok domain
 NGROK_DOMAIN="unremounted-unejective-tracey.ngrok-free.dev"
 
+# GROUP4's unique ngrok web interface port (within allocated range)
+GROUP4_NGROK_PORT="5008"
+
 echo -e "${RED}======================================${NC}"
 echo -e "${RED}   FIXING GROUP4 NGROK CONFIGURATION${NC}"
 echo -e "${RED}======================================${NC}"
 echo
-echo -e "${YELLOW}Current issue: Ngrok using wrong domain and port${NC}"
-echo -e "${GREEN}Will fix to use: $NGROK_DOMAIN${NC}"
+echo -e "${YELLOW}Port 4044 is used by other teams. GROUP4 will use port ${GROUP4_NGROK_PORT}${NC}"
+echo -e "${GREEN}Will configure domain: $NGROK_DOMAIN${NC}"
 echo
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'REMOTE_FIX'
@@ -40,20 +43,38 @@ NC='\033[0m'
 
 cd ~/Case-Studies
 
-echo -e "${YELLOW}Step 1: Killing ALL ngrok processes...${NC}"
+echo -e "${YELLOW}Step 1: Killing ONLY GROUP4's ngrok processes...${NC}"
 
-# Kill all ngrok processes to start fresh
-pkill -f ngrok || true
-sleep 3
+# Only kill ngrok processes owned by group4 user
+GROUP4_NGROK_PIDS=$(pgrep -u group4 -f ngrok)
 
-# Verify all ngrok processes are dead
-if pgrep -f ngrok > /dev/null; then
-    echo -e "${RED}Some ngrok processes still running, force killing...${NC}"
-    pkill -9 -f ngrok || true
-    sleep 2
+if [ -n "$GROUP4_NGROK_PIDS" ]; then
+    echo "Found GROUP4's ngrok processes:"
+    for pid in $GROUP4_NGROK_PIDS; do
+        echo "  Killing GROUP4 PID: $pid"
+        kill $pid 2>/dev/null || true
+    done
+    sleep 3
+
+    # Force kill if still running
+    GROUP4_NGROK_PIDS=$(pgrep -u group4 -f ngrok)
+    if [ -n "$GROUP4_NGROK_PIDS" ]; then
+        echo "Force killing remaining GROUP4 ngrok..."
+        for pid in $GROUP4_NGROK_PIDS; do
+            kill -9 $pid 2>/dev/null || true
+        done
+    fi
+else
+    echo "No GROUP4 ngrok processes found"
 fi
 
-echo -e "${GREEN}✅ All ngrok processes killed${NC}"
+echo -e "${GREEN}✅ GROUP4's ngrok processes cleaned${NC}"
+
+# Show other teams' ngrok (we won't touch these)
+OTHER_NGROK=$(pgrep -f ngrok | wc -l)
+if [ "$OTHER_NGROK" -gt 0 ]; then
+    echo -e "${YELLOW}Note: Other teams have $OTHER_NGROK ngrok processes running (untouched)${NC}"
+fi
 
 echo -e "${YELLOW}Step 2: Creating correct ngrok configuration...${NC}"
 
@@ -70,10 +91,14 @@ else
     echo -e "${RED}Warning: No NGROK_AUTHTOKEN found${NC}"
 fi
 
+# Set GROUP4's port
+GROUP4_NGROK_PORT=5008
+
 # Create the CORRECT ngrok configuration
-cat > ngrok-group4.yml << 'NGROK_CONFIG'
+cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
-web_addr: 127.0.0.1:4044
+authtoken: $NGROK_AUTHTOKEN
+web_addr: 127.0.0.1:$GROUP4_NGROK_PORT
 tunnels:
   ml-api:
     proto: http
@@ -92,8 +117,12 @@ tunnels:
 NGROK_CONFIG
 
 echo -e "${GREEN}✅ Created correct ngrok configuration${NC}"
+echo "  - Web interface port: $GROUP4_NGROK_PORT (avoiding conflict with port 4044)"
 echo "  - Using permanent domain: unremounted-unejective-tracey.ngrok-free.dev"
 echo "  - Routing to GROUP4 ports: 5000, 5003, 5006, 5007"
+
+# Save port configuration for other scripts
+echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
 
 echo -e "${YELLOW}Step 3: Starting ngrok with correct configuration...${NC}"
 
@@ -115,8 +144,8 @@ fi
 echo -e "${YELLOW}Step 4: Verifying ngrok is running correctly...${NC}"
 
 # Check ngrok status
-if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Ngrok API responding on port 4044${NC}"
+if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ GROUP4 ngrok API responding on port $GROUP4_NGROK_PORT${NC}"
 
     # Display the URLs
     echo
@@ -125,7 +154,7 @@ if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
     echo -e "${BLUE}========================================${NC}"
     echo
 
-    curl -s http://localhost:4044/api/tunnels | python3 -c "
+    curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)

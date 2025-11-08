@@ -20,12 +20,16 @@ VM_PORT="2222"
 # Your permanent ngrok domain
 NGROK_DOMAIN="unremounted-unejective-tracey.ngrok-free.dev"
 
+# GROUP4's unique ngrok web interface port (avoiding conflicts)
+GROUP4_NGROK_PORT="5008"
+
 echo -e "${BLUE}======================================${NC}"
 echo -e "${BLUE}   GROUP4 Ngrok Setup${NC}"
 echo -e "${BLUE}======================================${NC}"
 echo
 echo -e "${GREEN}Using your permanent domain:${NC}"
 echo -e "${YELLOW}  $NGROK_DOMAIN${NC}"
+echo -e "${GREEN}Using port ${GROUP4_NGROK_PORT} for web interface (avoiding port 4044 conflicts)${NC}"
 echo
 
 ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'REMOTE_SCRIPT'
@@ -41,17 +45,16 @@ cd ~/Case-Studies
 
 echo -e "${YELLOW}Stopping any existing GROUP4 ngrok...${NC}"
 
-# Kill any existing ngrok on port 4044 or with wrong config
-for pid in $(pgrep -f "ngrok.*4044|ngrok.*32150"); do
-    echo "  Killing PID: $pid"
-    kill $pid 2>/dev/null || true
-done
-
-# Also kill any ngrok running for GROUP4
-for pid in $(pgrep -u group4 -f ngrok); do
-    echo "  Killing GROUP4 ngrok PID: $pid"
-    kill $pid 2>/dev/null || true
-done
+# Kill only GROUP4's ngrok processes (not other teams')
+GROUP4_NGROK_PIDS=$(pgrep -u group4 -f ngrok)
+if [ -n "$GROUP4_NGROK_PIDS" ]; then
+    for pid in $GROUP4_NGROK_PIDS; do
+        echo "  Killing GROUP4 ngrok PID: $pid"
+        kill $pid 2>/dev/null || true
+    done
+else
+    echo "  No existing GROUP4 ngrok processes found"
+fi
 
 sleep 3
 
@@ -67,10 +70,17 @@ if [ -n "$NGROK_AUTHTOKEN" ]; then
     ngrok config add-authtoken $NGROK_AUTHTOKEN
 fi
 
+# Set GROUP4's port
+GROUP4_NGROK_PORT=5008
+
+# Save port configuration for other scripts
+echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
+
 # Create proper ngrok config for GROUP4 with permanent domain
-cat > ngrok-group4.yml << 'NGROK_CONFIG'
+cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
-web_addr: 127.0.0.1:4044
+authtoken: $NGROK_AUTHTOKEN
+web_addr: 127.0.0.1:$GROUP4_NGROK_PORT
 tunnels:
   ml-api:
     proto: http
@@ -111,8 +121,8 @@ echo "Waiting for ngrok to initialize..."
 sleep 10
 
 # Check if ngrok is running and show URLs
-if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Ngrok started successfully!${NC}"
+if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Ngrok started successfully on port $GROUP4_NGROK_PORT!${NC}"
     echo
     echo -e "${BLUE}========================================${NC}"
     echo -e "${BLUE}   YOUR GROUP4 PUBLIC URLS${NC}"
@@ -126,7 +136,7 @@ if curl -s http://localhost:4044/api/tunnels > /dev/null 2>&1; then
 
     # Get all tunnel URLs
     echo -e "${GREEN}All Service URLs:${NC}"
-    curl -s http://localhost:4044/api/tunnels | python3 -c "
+    curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
