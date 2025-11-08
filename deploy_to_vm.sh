@@ -414,9 +414,10 @@ fi
 # Use GROUP4's allocated port to avoid conflicts
 GROUP4_NGROK_PORT=5008
 
-# Create ngrok config for GROUP4 with permanent domain
-# NOTE: Free plan limited to 3 endpoints - using only essential services
-# IMPORTANT: Only ml-api uses the permanent domain; others get random URLs
+# Create ngrok config for ML-API ONLY (using YOUR token)
+# Strategy: Use 2 ngrok accounts to bypass 3-endpoint limit
+#   - Your token: ml-api only (1 endpoint with permanent domain)
+#   - Teammate token: ml-local, grafana, prometheus (3 endpoints)
 cat > ngrok-group4.yml << NGROK_EOF
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -428,14 +429,6 @@ tunnels:
     hostname: unremounted-unejective-tracey.ngrok-free.dev
     host_header: "localhost:5000"
     inspect: false
-  ml-local:
-    proto: http
-    addr: 5003
-    inspect: false
-  grafana:
-    proto: http
-    addr: 5007
-    inspect: false
 NGROK_EOF
 
 # Start GROUP4's ngrok with unique config
@@ -445,19 +438,25 @@ sleep 8
 # Save port configuration for other scripts
 echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
 
-# Start teammate's ngrok for Prometheus if token is available
+# Start teammate's ngrok for OTHER services (ml-local, grafana, prometheus)
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo ""
-    echo "Setting up teammate's ngrok for Prometheus..."
+    echo "Setting up teammate's ngrok for ml-local, grafana, and prometheus..."
 
-    # Create config for Prometheus with teammate's token
-    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
-        echo "Using teammate's permanent domain: $TEAMMATE_NGROK_DOMAIN"
-        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+    # Create config with teammate's token (3 endpoints)
+    cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
 web_addr: 127.0.0.1:5009
 tunnels:
+  ml-local:
+    proto: http
+    addr: 5003
+    inspect: false
+  grafana:
+    proto: http
+    addr: 5007
+    inspect: false
   prometheus:
     proto: http
     addr: 5006
@@ -465,24 +464,18 @@ tunnels:
     host_header: "localhost:5006"
     inspect: false
 NGROK_TEAMMATE
-    else
-        # No domain, will get random URL
-        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
-version: "2"
-authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5009
-tunnels:
-  prometheus:
-    proto: http
-    addr: 5006
-    inspect: false
-NGROK_TEAMMATE
-    fi
 
     # Start second ngrok process on port 5009
-    nohup ngrok start --all --config ngrok-prometheus.yml > ngrok-prometheus.log 2>&1 &
-    echo "Started teammate's ngrok for Prometheus on port 5009"
+    nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
+    echo "Started teammate's ngrok on port 5009"
+    echo "  - ML-Local: Will get random URL"
+    echo "  - Grafana: Will get random URL"
+    echo "  - Prometheus: Will use $TEAMMATE_NGROK_DOMAIN"
     sleep 5
+else
+    echo ""
+    echo "⚠️  No teammate token configured - only ML-API will be exposed"
+    echo "  To expose all 4 services, run ./setup_tokens.sh and add teammate's token"
 fi
 
 # Get URLs
@@ -532,20 +525,29 @@ except Exception as e:
     print('Check ngrok-group4.log for details')
 "
 
-# Check teammate's ngrok for Prometheus if running
+# Check teammate's ngrok for other services if running
 if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
     echo ""
-    echo "Teammate's Ngrok (Prometheus):"
+    echo "Teammate's Ngrok Services (Port 5009):"
     curl -s http://localhost:5009/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
     for tunnel in data.get('tunnels', []):
         if tunnel.get('proto') == 'https':
-            print(f'  📊 Prometheus: {tunnel.get(\"public_url\")}')
-            break
+            name = tunnel.get('name', '')
+            url = tunnel.get('public_url', '')
+            if 'ml-local' in name:
+                print(f'  🎤 Wav2Vec2 (ML-Local): {url}')
+            elif 'grafana' in name:
+                print(f'  📈 Grafana Dashboard: {url}')
+            elif 'prometheus' in name:
+                print(f'  📊 Prometheus: {url}')
 except: pass
 "
+else
+    echo ""
+    echo "⚠️  ML-Local, Grafana, and Prometheus not exposed (no teammate token)"
 fi
 EOF
 

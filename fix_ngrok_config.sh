@@ -136,9 +136,10 @@ fi
 # Set GROUP4's port
 GROUP4_NGROK_PORT=5008
 
-# Create the CORRECT ngrok configuration
-# NOTE: Free plan limited to 3 endpoints - using only essential services
-# IMPORTANT: Only ml-api uses the permanent domain; others get random URLs
+# Create ngrok configuration
+# IMPORTANT: The free tier issue - if we specify hostname for one tunnel,
+# ngrok may apply it to all. So we'll start them separately.
+# First config: ONLY ml-api with permanent domain
 cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -150,15 +151,10 @@ tunnels:
     hostname: unremounted-unejective-tracey.ngrok-free.dev
     host_header: "localhost:5000"
     inspect: false
-  ml-local:
-    proto: http
-    addr: 5003
-    inspect: false
-  grafana:
-    proto: http
-    addr: 5007
-    inspect: false
 NGROK_CONFIG
+
+# We'll add ml-local and grafana later using teammate's second account
+# or accept that they share the same domain
 
 echo -e "${GREEN}✅ Created correct ngrok configuration${NC}"
 echo "  - Web interface port: $GROUP4_NGROK_PORT (avoiding conflict with port 4044)"
@@ -185,19 +181,26 @@ if ! ps -p $NGROK_PID > /dev/null; then
     exit 1
 fi
 
-# If teammate token provided, start second ngrok for Prometheus
+# If teammate token provided, use it for the other services
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo
-    echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token...${NC}"
+    echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token for other services...${NC}"
 
-    # Create config for Prometheus only (staying under 3 endpoint limit)
-    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
-        echo "Using teammate's permanent domain: $TEAMMATE_NGROK_DOMAIN"
-        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+    # Create config for ml-local, grafana, and prometheus
+    # Prometheus gets the permanent domain, others get random
+    cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
 web_addr: 127.0.0.1:5009
 tunnels:
+  ml-local:
+    proto: http
+    addr: 5003
+    inspect: false
+  grafana:
+    proto: http
+    addr: 5007
+    inspect: false
   prometheus:
     proto: http
     addr: 5006
@@ -205,24 +208,13 @@ tunnels:
     host_header: "localhost:5006"
     inspect: false
 NGROK_TEAMMATE
-    else
-        # No domain provided, will get random URL
-        cat > ngrok-prometheus.yml << NGROK_TEAMMATE
-version: "2"
-authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5009
-tunnels:
-  prometheus:
-    proto: http
-    addr: 5006
-    inspect: false
-NGROK_TEAMMATE
-    fi
 
-    # Start second ngrok process
-    nohup ngrok start --all --config ngrok-prometheus.yml > ngrok-prometheus.log 2>&1 &
+    # Start second ngrok process with teammate's account
+    nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
     NGROK2_PID=$!
-    echo "Started Prometheus ngrok with PID: $NGROK2_PID on port 5009"
+    echo "Started teammate's ngrok with PID: $NGROK2_PID on port 5009"
+    echo "  - Prometheus will use: $TEAMMATE_NGROK_DOMAIN"
+    echo "  - ML-Local and Grafana will get random URLs"
     sleep 5
 fi
 

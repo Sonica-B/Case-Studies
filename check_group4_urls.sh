@@ -8,7 +8,12 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # SSH connection details
-SSH_KEY="$HOME/.ssh/vm"
+# Use Windows path if on Windows, otherwise Linux path
+if [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]] || [[ "$OSTYPE" == "win32" ]]; then
+    SSH_KEY="$USERPROFILE/.ssh/vm"
+else
+    SSH_KEY="$HOME/.ssh/vm"
+fi
 VM_USER="group4"
 VM_HOST="melnibone.wpi.edu"
 VM_PORT="2222"
