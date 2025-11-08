@@ -31,16 +31,30 @@ NC='\033[0m'
 
 echo -e "${YELLOW}Test 1: Checking backend services...${NC}"
 # Check if ML services are running
+echo "Checking Docker containers..."
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "NAMES|group4" || echo "No GROUP4 containers found"
+
 if docker ps | grep -q group4-ml-api; then
     echo -e "${GREEN}✅ ML-API service is running${NC}"
 else
     echo -e "${RED}❌ ML-API service is not running${NC}"
+    echo "  Try: docker start group4-ml-api-product"
 fi
 
 if docker ps | grep -q group4-ml-local; then
     echo -e "${GREEN}✅ ML-Local service is running${NC}"
 else
     echo -e "${RED}❌ ML-Local service is not running${NC}"
+    echo "  Try: docker start group4-ml-local-product"
+fi
+
+# Check if gateway is running (Docker or Python)
+if docker ps | grep -q group4-gateway; then
+    echo -e "${GREEN}✅ Gateway container is running${NC}"
+elif pgrep -f "python.*smart_proxy.py" > /dev/null; then
+    echo -e "${GREEN}✅ Gateway is running (non-Docker)${NC}"
+else
+    echo -e "${YELLOW}⚠️ Gateway is not running${NC}"
 fi
 
 echo
