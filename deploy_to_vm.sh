@@ -129,14 +129,53 @@ EOF
 print_header "Checking Docker"
 print_color "$GREEN" "Verifying Docker installation..."
 
-docker_check=$(ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "command -v docker &> /dev/null && echo 'yes' || echo 'no'")
-if [ "$docker_check" != "yes" ]; then
-    print_color "$RED" "❌ Docker is not available on the VM"
-    print_color "$YELLOW" "Please contact your instructor to get Docker access"
+# More robust Docker check with debugging
+ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST << 'DOCKER_CHECK'
+# Check if Docker is installed
+if command -v docker &> /dev/null; then
+    echo "Docker is installed at: $(which docker)"
+
+    # Check if current user can run Docker
+    if docker version &> /dev/null; then
+        echo "✅ Docker is accessible"
+        echo "Docker version: $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'Unable to get version')"
+        exit 0
+    else
+        # Check if user needs to be in docker group
+        if ! groups | grep -q docker; then
+            echo "❌ User is not in docker group"
+            echo "Fix: Ask admin to run: sudo usermod -aG docker $USER"
+            echo "Then logout and login again"
+            exit 1
+        else
+            echo "❌ Docker installed but not accessible"
+            echo "Trying with sudo..."
+            if sudo docker version &> /dev/null; then
+                echo "Docker works with sudo. User permissions issue."
+                echo "Fix: Logout and login again, or run: newgrp docker"
+            fi
+            exit 1
+        fi
+    fi
+else
+    echo "❌ Docker command not found"
+    echo "Docker may not be installed or not in PATH"
+    exit 1
+fi
+DOCKER_CHECK
+
+docker_status=$?
+if [ $docker_status -ne 0 ]; then
+    print_color "$RED" "❌ Docker check failed"
+    print_color "$YELLOW" "Common fixes:"
+    echo "  1. If you see 'System restart required', ask admin to restart the VM"
+    echo "  2. Try: newgrp docker (to refresh group membership)"
+    echo "  3. Logout and login again to refresh permissions"
+    echo "  4. Contact your instructor if Docker needs to be installed"
     exit 1
 fi
 
-print_color "$GREEN" "✅ Docker is available"
+print_color "$GREEN" "✅ Docker is available and accessible"
 
 # Step 5: Stop existing containers
 print_header "Cleaning Up GROUP4 Only"
