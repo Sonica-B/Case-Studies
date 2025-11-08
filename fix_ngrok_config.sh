@@ -181,18 +181,30 @@ if ! ps -p $NGROK_PID > /dev/null; then
     exit 1
 fi
 
-# If teammate token provided, use it for the other services
+# SOLUTION: Put ml-local and grafana back with ml-api (your token)
+# Only use teammate's token for Prometheus alone
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo
-    echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token for other services...${NC}"
+    echo -e "${YELLOW}Step 3b: Reconfiguring for unique URLs...${NC}"
 
-    # Create config for ml-local, grafana, and prometheus
-    # Prometheus gets the permanent domain, others get random
-    cat > ngrok-teammate.yml << NGROK_TEAMMATE
+    # First, kill the ml-api only process
+    kill $NGROK_PID 2>/dev/null || true
+    sleep 2
+
+    # Recreate config with YOUR token for 3 services
+    # This will give ml-api the permanent domain, ml-local and grafana get same domain too
+    # But at least they're not mixing with Prometheus
+    cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
-authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5009
+authtoken: $NGROK_AUTHTOKEN
+web_addr: 127.0.0.1:$GROUP4_NGROK_PORT
 tunnels:
+  ml-api:
+    proto: http
+    addr: 5000
+    hostname: unremounted-unejective-tracey.ngrok-free.dev
+    host_header: "localhost:5000"
+    inspect: false
   ml-local:
     proto: http
     addr: 5003
@@ -201,6 +213,14 @@ tunnels:
     proto: http
     addr: 5007
     inspect: false
+NGROK_CONFIG
+
+    # Teammate's config - ONLY Prometheus
+    cat > ngrok-prometheus.yml << NGROK_TEAMMATE
+version: "2"
+authtoken: $TEAMMATE_NGROK_TOKEN
+web_addr: 127.0.0.1:5009
+tunnels:
   prometheus:
     proto: http
     addr: 5006
@@ -209,13 +229,21 @@ tunnels:
     inspect: false
 NGROK_TEAMMATE
 
-    # Start second ngrok process with teammate's account
-    nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
-    NGROK2_PID=$!
-    echo "Started teammate's ngrok with PID: $NGROK2_PID on port 5009"
-    echo "  - Prometheus will use: $TEAMMATE_NGROK_DOMAIN"
-    echo "  - ML-Local and Grafana will get random URLs"
+    # Restart YOUR ngrok with all 3 services
+    echo "Starting your ngrok with ml-api, ml-local, grafana..."
+    nohup ngrok start --all --config ngrok-group4.yml > ngrok-group4.log 2>&1 &
+    NGROK_PID=$!
     sleep 5
+
+    # Start teammate's ngrok with ONLY Prometheus
+    echo "Starting teammate's ngrok with Prometheus only..."
+    nohup ngrok start --all --config ngrok-prometheus.yml > ngrok-prometheus.log 2>&1 &
+    NGROK2_PID=$!
+    echo "Started Prometheus ngrok on port 5009"
+    sleep 5
+else
+    echo
+    echo -e "${YELLOW}No teammate token - services will share your domain${NC}"
 fi
 
 echo -e "${YELLOW}Step 4: Verifying ngrok is running correctly...${NC}"

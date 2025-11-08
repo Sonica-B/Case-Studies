@@ -1,0 +1,60 @@
+version: '3.8'
+
+# Smart Gateway overlay configuration for GROUP4
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.gateway.yml up -d
+# This creates a single endpoint with model toggle functionality
+
+services:
+  # Smart Gateway Service with Model Toggle
+  gateway:
+    container_name: group4-gateway
+    build:
+      context: ./fusion-app
+      dockerfile: Dockerfile.gateway
+    image: group4-gateway:latest
+    ports:
+      - "8000:8000"  # Gateway main port
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_SERVICE_URL=http://localhost:5000
+      - LOCAL_SERVICE_URL=http://localhost:5003
+    network_mode: host  # Use host network to access local services
+    restart: unless-stopped
+    labels:
+      - "group4.service=gateway"
+      - "group4.description=Smart proxy with model toggle"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Override ml-api to not expose port externally
+  ml-api:
+    ports: []  # Remove external port mapping
+    expose:
+      - "5000"  # Only expose internally
+
+  # Override ml-local to not expose port externally
+  ml-local:
+    ports: []  # Remove external port mapping
+    expose:
+      - "5003"  # Only expose internally
+
+  # Nginx alternative (if preferred over Python gateway)
+  nginx-gateway:
+    container_name: group4-nginx-gateway
+    image: nginx:alpine
+    ports:
+      - "5009:8000"
+    volumes:
+      - ./nginx-model-router.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - ml-api
+      - ml-local
+    networks:
+      - group4-network
+    restart: unless-stopped
+    profiles:
+      - nginx  # Only start if --profile nginx is specified
