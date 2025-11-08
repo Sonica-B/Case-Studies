@@ -9,7 +9,7 @@ services:
   gateway:
     container_name: group4-gateway
     build:
-      context: ./fusion-app
+      context: .
       dockerfile: Dockerfile.gateway
     image: group4-gateway:latest
     ports:

@@ -51,9 +51,11 @@ docker rm group4-gateway 2>/dev/null
 sleep 2
 
 echo -e "${YELLOW}Step 2: Building gateway Docker image...${NC}"
-cd fusion-app
 
-# Create Dockerfile if not exists
+# Ensure we're in the right directory
+cd ~/Case-Studies
+
+# Create Dockerfile in main directory
 cat > Dockerfile.gateway << 'EOF'
 # Dockerfile for Smart Gateway
 FROM python:3.9-slim
@@ -63,9 +65,9 @@ WORKDIR /app
 # Install dependencies
 RUN pip install flask requests gradio
 
-# Copy gateway code
-COPY smart_proxy.py .
-COPY unified_gateway.py .
+# Copy gateway code from fusion-app directory
+COPY fusion-app/smart_proxy.py .
+COPY fusion-app/unified_gateway.py .
 
 # Expose port
 EXPOSE 8000
@@ -74,7 +76,7 @@ EXPOSE 8000
 CMD ["python", "smart_proxy.py"]
 EOF
 
-# Build the image
+# Build the image from Case-Studies directory
 docker build -f Dockerfile.gateway -t group4-gateway:latest .
 
 echo -e "${YELLOW}Step 3: Starting backend ML services...${NC}"
