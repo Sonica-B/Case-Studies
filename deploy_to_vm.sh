@@ -399,25 +399,27 @@ if pgrep -f "ngrok" | grep -v -E "group4|4044" > /dev/null; then
     echo "✅ Other teams' ngrok processes are still running"
 fi
 
-# Create ngrok config for GROUP4 with unique web address port
+# Create ngrok config for GROUP4 with permanent domain
 cat > ngrok-group4.yml << NGROK_EOF
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
-web_addr: 127.0.0.1:4044  # GROUP4's unique ngrok web port
+web_addr: 127.0.0.1:4044  # GROUP4's ngrok web interface port
 tunnels:
-  group4-api:
+  ml-api:
     proto: http
     addr: 5000
+    hostname: unremounted-unejective-tracey.ngrok-free.dev
+    host_header: "localhost:5000"
     inspect: false
-  group4-local:
+  ml-local:
     proto: http
     addr: 5003
     inspect: false
-  group4-prometheus:
+  prometheus:
     proto: http
     addr: 5006
     inspect: false
-  group4-grafana:
+  grafana:
     proto: http
     addr: 5007
     inspect: false
@@ -436,21 +438,34 @@ try:
     data = json.load(sys.stdin)
     print('\\n🌐 PUBLIC URLs (Share these):')
     print('=' * 40)
+
+    # Look for tunnels by name (ml-api, ml-local, etc.)
     for tunnel in data.get('tunnels', []):
         name = tunnel.get('name', 'unknown')
         url = tunnel.get('public_url', 'N/A')
-        if 'group4' in name:
-            if 'api' in name and 'https' in url:
-                print(f'API Product: {url}')
-            elif 'local' in name and 'https' in url:
-                print(f'Local Product: {url}')
+        proto = tunnel.get('proto', '')
+
+        # Only show HTTPS URLs
+        if proto == 'https':
+            if 'ml-api' in name:
+                print(f'🎨 CLIP Model (API): {url}')
+            elif 'ml-local' in name:
+                print(f'🎤 Wav2Vec2 (Local): {url}')
             elif 'prometheus' in name:
-                print(f'Prometheus: {url}')
+                print(f'📊 Prometheus: {url}')
             elif 'grafana' in name:
-                print(f'Grafana: {url}')
+                print(f'📈 Grafana: {url}')
+
+    # Show if permanent domain is being used
+    for tunnel in data.get('tunnels', []):
+        if 'unremounted-unejective-tracey' in tunnel.get('public_url', ''):
+            print('\\n✅ Using your permanent domain!')
+            break
+
     print('=' * 40)
-except:
-    print('Could not fetch ngrok URLs - check ngrok.log')
+except Exception as e:
+    print(f'Could not fetch ngrok URLs: {e}')
+    print('Check ngrok-group4.log for details')
 "
 EOF
 
