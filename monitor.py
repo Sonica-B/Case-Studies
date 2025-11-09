@@ -14,9 +14,9 @@ from datetime import datetime
 SERVICES = {
     "API Product (Gradio)": "http://localhost:5000",
     "Local Product (Gradio)": "http://localhost:5003",
-    "API Node Exporter": "http://localhost:9100/metrics",
+    "API Node Exporter": "http://localhost:5002/metrics",
     "API Python Metrics": "http://localhost:8000/metrics",
-    "Local Node Exporter": "http://localhost:9101/metrics",
+    "Local Node Exporter": "http://localhost:5005/metrics",
     "Local Python Metrics": "http://localhost:8001/metrics",
     "Prometheus": "http://localhost:5006/-/ready",
     "Grafana": "http://localhost:5007/api/health",

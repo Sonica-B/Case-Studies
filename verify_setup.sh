@@ -116,8 +116,8 @@ fi
 
 # Check port configuration
 print_header "Port Configuration"
-print_color "$YELLOW" "Key ports: 5000, 5003, 5006, 5007, 8000, 8001, 9100, 9101"
-ports=(5000 5003 5006 5007 8000 8001 9100 9101)
+print_color "$YELLOW" "Key ports: 5000, 5003, 5006, 5007, 8000, 8001, 5002, 5005"
+ports=(5000 5003 5006 5007 8000 8001 5002 5005)
 for port in "${ports[@]}"; do
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
         print_color "$YELLOW" "⚠️ Port $port is currently in use locally"
@@ -186,7 +186,7 @@ echo "  - 5006: Prometheus Server"
 echo "  - 5007: Grafana Dashboard (host) / 3000 in-container"
 echo "  - 8000: API Prometheus metrics"
 echo "  - 8001: Local Prometheus metrics"
-echo "  - 9100: API Node Exporter"
-echo "  - 9101: Local Node Exporter"
+echo "  - 5002: API Node Exporter"
+echo "  - 5005: Local Node Exporter"
 
 echo

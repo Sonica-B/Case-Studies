@@ -7,23 +7,23 @@ This document captures the current state of every Case Study 3 requirement after
 ## 1. API Product Dockerized
 - **Container**: `group4-ml-api-product`
 - **Definition**: `Dockerfile.api` (python:3.10-slim, installs app plus `prometheus-node-exporter`)
-- **Ports**: 5000 (Gradio), 8000 (Prometheus custom metrics), 9100 (node exporter)
+- **Ports**: 5000 (Gradio), 8000 (Prometheus custom metrics), host 5002 mapped to container 9100 (node exporter)
 - **Compose Service**: `ml-api` in `docker-compose.yml` / `docker-compose.prod.yml`
 - **Notes**: Runs `prometheus-node-exporter` alongside `app_api_prometheus.py`, health-checked via curl on 5000.
 
 ## 2. Local Product Dockerized
 - **Container**: `group4-ml-local-product`
 - **Definition**: `Dockerfile.local` (same base image, pre-downloads CLIP + Wav2Vec2 weights)
-- **Ports**: 5003 (Gradio), 8000 in-container mapped to host 8001, node exporter 9100 mapped to 9101
+- **Ports**: 5003 (Gradio), 8000 in-container mapped to host 8001, node exporter host 5005 mapped to container 9100
 - **Volumes**: `group4-model-cache` for HuggingFace cache reuse
 - **Notes**: GPU support disabled to fit the shared VM; metrics-enabled entrypoint `app_local_prometheus.py`.
 
 ## 3. Prometheus Node Exporters
 - Both Dockerfiles install and start `prometheus-node-exporter --web.listen-address=:9100`.
 - **Exposure**:
-  - API container: host 9100 → container 9100
-  - Local container: host 9101 → container 9100
-- Verified in `deploy_to_vm.sh` via `curl http://localhost:9100/metrics` and `curl http://localhost:9101/metrics`.
+  - API container: host 5002 mapped to container 9100
+  - Local container: host 5005 mapped to container 9100
+- Verified in `deploy_to_vm.sh` via `curl http://localhost:5002/metrics` and `curl http://localhost:5005/metrics`.
 
 ## 4. Prometheus Client Metrics (Python)
 - **API app** (`fusion-app/app_api_prometheus.py`) exposes:
@@ -65,7 +65,7 @@ docker inspect group4-grafana --format='{{range .NetworkSettings.Networks}}{{.IP
   - `ml-local:8000` and `ml-local:9100`
   - `localhost:9090`
 - `grafana/dashboards/ml-monitoring.json` panels now align with the metric names emitted by the code (inference rates, avg latency, API calls, fusion alpha heatmap, prediction confidence median, model loaded gauges, node exporter CPU/memory charts).
-- `monitor.py` checks the correct host ports (5000/5003, 8000/8001, 9100/9101, Grafana 5007) and queries `ml_errors_by_type_total` for error-rate reporting.
+- `monitor.py` checks the correct host ports (5000/5003, 8000/8001, 5002/5005, Grafana 5007) and queries `ml_errors_by_type_total` for error-rate reporting.
 
 ---
 
@@ -74,10 +74,10 @@ docker inspect group4-grafana --format='{{range .NetworkSettings.Networks}}{{.IP
 |-----------------------------|-----------|----------------|
 | API Gradio UI               | 5000      | 5000           |
 | API Prometheus metrics      | 8000      | 8000           |
-| API Node exporter           | 9100      | 9100           |
+| API Node exporter           | 5002      | 9100           |
 | Local Gradio UI             | 5003      | 5003           |
 | Local Prometheus metrics    | 8001      | 8000           |
-| Local Node exporter         | 9101      | 9100           |
+| Local Node exporter         | 5005      | 9100           |
 | Prometheus UI/API           | 5006      | 9090           |
 | Grafana                     | 5007      | 3000           |
 
@@ -89,3 +89,4 @@ docker inspect group4-grafana --format='{{range .NetworkSettings.Networks}}{{.IP
 3. **Ngrok limits** – free tier allows three tunnels per account. Using two accounts (one for API, one for the other three services) is baked into the scripts; document this when submitting.
 
 Everything else on the checklist now reflects the current repo state.
+

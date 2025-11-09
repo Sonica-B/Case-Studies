@@ -43,10 +43,10 @@ echo Starting SSH tunnel...
 start "WPI VM SSH Tunnel" ssh -N ^
     -L 5000:localhost:5000 ^
     -L 8000:localhost:8000 ^
-    -L 9100:localhost:9100 ^
+    -L 5002:localhost:9100 ^
     -L 5003:localhost:5003 ^
     -L 8001:localhost:8001 ^
-    -L 9101:localhost:9101 ^
+    -L 5005:localhost:9100 ^
     -L 5006:localhost:5006 ^
     -L 5007:localhost:5007 ^
     -p %VM_PORT% ^
@@ -62,10 +62,10 @@ echo =========================================
 echo.
 echo   API Product:         http://localhost:5000
 echo   API Metrics:         http://localhost:8000/metrics
-echo   API Node Exporter:   http://localhost:9100/metrics
+echo   API Node Exporter:   http://localhost:5002/metrics
 echo   Local Product:       http://localhost:5003
 echo   Local Metrics:       http://localhost:8001/metrics
-echo   Local Node Exporter: http://localhost:9101/metrics
+echo   Local Node Exporter: http://localhost:5005/metrics
 echo   Prometheus:          http://localhost:5006
 echo   Grafana:             http://localhost:5007 (admin/admin)
 echo.

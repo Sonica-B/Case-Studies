@@ -90,7 +90,7 @@ Case-Studies/
    Then access:
    - API Product: http://localhost:5000
    - API Metrics: http://localhost:8000/metrics
-   - API Node Exporter: http://localhost:9100/metrics
+   - API Node Exporter: http://localhost:5002/metrics
    - Local Product: http://localhost:5003
    - Local Metrics: http://localhost:8001/metrics
    - Local Node Exporter: http://localhost:9101/metrics
@@ -106,8 +106,8 @@ Your team's exclusive ports:
 - **5007**: Grafana Dashboard (exposed globally via ngrok)
 - **8000**: API Metrics endpoint
 - **8001**: Local Metrics endpoint
-- **9100**: API Node Exporter
-- **9101**: Local Node Exporter
+- **5002**: API Node Exporter
+- **5005**: Local Node Exporter
 
 ## 🔍 Verification
 

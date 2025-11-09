@@ -149,10 +149,10 @@ TEAMMATE_NGROK_DOMAIN=\${TEAMMATE_NGROK_DOMAIN}
 # Port configuration
 API_GRADIO_PORT=5000
 API_METRICS_PORT=8000
-API_NODE_EXPORTER_PORT=9100
+API_NODE_EXPORTER_PORT=5002
 LOCAL_GRADIO_PORT=5003
 LOCAL_METRICS_PORT=8001
-LOCAL_NODE_EXPORTER_PORT=9101
+LOCAL_NODE_EXPORTER_PORT=5005
 PROMETHEUS_PORT=5006
 GRAFANA_PORT=5007
 
@@ -337,10 +337,10 @@ test_endpoint() {
 # Test each service
 test_endpoint "API Product" 5000 "/"
 test_endpoint "API Metrics" 8000 "/metrics"
-test_endpoint "API Node Export" 9100 "/metrics"
+test_endpoint "API Node Export" 5002 "/metrics"
 test_endpoint "Local Product" 5003 "/"
 test_endpoint "Local Metrics" 8001 "/metrics"
-test_endpoint "Local Node Export" 9101 "/metrics"
+test_endpoint "Local Node Export" 5005 "/metrics"
 test_endpoint "Prometheus" 5006 "/-/ready"
 test_endpoint "Grafana" 5007 "/api/health"
 EOF

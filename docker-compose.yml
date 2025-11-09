@@ -15,7 +15,7 @@ services:
     ports:
       - "5000:5000"  # Gradio UI
       - "8000:8000"  # Python metrics (standard port)
-      - "9100:9100"  # Node exporter (standard port)
+      - "5002:9100"  # Node exporter mapped into allowed port range
     restart: unless-stopped
     networks:
       - group4-network
@@ -34,7 +34,7 @@ services:
     ports:
       - "5003:5003"    # Gradio UI
       - "8001:8000"    # Python metrics (map host 8001 to standard 8000 in-container)
-      - "9101:9100"    # Node exporter (map host 9101 to standard 9100 in-container)
+      - "5005:9100"    # Node exporter mapped into allowed port range
     volumes:
       - group4-model-cache:/root/.cache/huggingface
     restart: unless-stopped
