@@ -176,9 +176,22 @@ def index():
                 </div>
             </div>
             <center>
-                <a href="/app" style="display: inline-block; margin: 20px; padding: 15px 30px; background: linear-gradient(45deg, #667eea, #764ba2); color: white; text-decoration: none; border-radius: 25px; font-size: 18px;">
-                    Access Model Interface →
-                </a>
+                <div style="margin: 20px 0;">
+                    <h4 style="color: #666; margin: 10px 0;">Option 1: Try Proxy Access</h4>
+                    <a href="/app" style="display: inline-block; margin: 10px; padding: 15px 30px; background: linear-gradient(45deg, #667eea, #764ba2); color: white; text-decoration: none; border-radius: 25px; font-size: 18px;">
+                        Access via Proxy →
+                    </a>
+                </div>
+                <div style="border-top: 1px solid #ddd; margin: 20px 40px;"></div>
+                <div style="margin: 20px 0;">
+                    <h4 style="color: #666; margin: 10px 0;">Option 2: Direct Port Access (Recommended)</h4>
+                    <a href="http://localhost:5000" target="_blank" style="display: inline-block; margin: 10px; padding: 15px 30px; background: #4CAF50; color: white; text-decoration: none; border-radius: 25px; font-size: 16px;">
+                        CLIP Model (Port 5000) →
+                    </a>
+                    <a href="http://localhost:5003" target="_blank" style="display: inline-block; margin: 10px; padding: 15px 30px; background: #2196F3; color: white; text-decoration: none; border-radius: 25px; font-size: 16px;">
+                        Wav2Vec2 (Port 5003) →
+                    </a>
+                </div>
             </center>
         </div>
         <script>
@@ -205,42 +218,55 @@ def toggle_model():
     response.set_cookie('model_preference', new_model, max_age=86400*30)  # 30 days
     return response
 
-@app.route('/app')
+@app.route('/app', defaults={'path': ''})
 @app.route('/app/<path:path>')
-def proxy_app(path=''):
-    """Proxy requests to the selected model"""
+def proxy_app(path):
+    """Proxy ALL requests to the selected model including assets"""
     model = request.cookies.get('model_preference', 'api')
     backend_url = SERVICES[model]
 
     try:
+        # Build the complete URL with path
         target_url = f"{backend_url}/{path}"
         if request.query_string:
             target_url += f"?{request.query_string.decode()}"
 
-        if request.method == 'GET':
-            resp = session.get(target_url, headers=request.headers)
-        elif request.method == 'POST':
-            resp = session.post(target_url, data=request.data, headers=request.headers)
-        else:
-            resp = session.request(
-                method=request.method,
-                url=target_url,
-                headers=request.headers,
-                data=request.data
-            )
+        # Forward the request with all methods and data
+        resp = session.request(
+            method=request.method,
+            url=target_url,
+            headers={k:v for k,v in request.headers if k.lower() != 'host'},
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            stream=True
+        )
 
-        response = make_response(resp.content)
-        response.status_code = resp.status_code
+        # Create response with streamed content
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        headers = [(k,v) for k,v in resp.raw.headers.items() if k.lower() not in excluded_headers]
 
-        exclude_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        for key, value in resp.headers.items():
-            if key.lower() not in exclude_headers:
-                response.headers[key] = value
-
+        response = make_response(resp.content, resp.status_code, headers)
         return response
 
-    except Exception as e:
-        return jsonify({'error': str(e), 'model': model}), 500
+    except requests.exceptions.RequestException as e:
+        # If backend is not accessible, redirect to direct port access
+        port = '5000' if model == 'api' else '5003'
+        return f"""
+        <html>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+            <h2>Direct Access Required</h2>
+            <p>Gradio interface needs direct access. Click below:</p>
+            <a href="http://localhost:{port}" target="_blank"
+               style="display: inline-block; padding: 15px 30px; background: #4CAF50;
+                      color: white; text-decoration: none; border-radius: 5px; font-size: 18px;">
+                Open {model.upper()} Model Interface →
+            </a>
+            <br><br>
+            <a href="/" style="color: #667eea;">← Back to Gateway</a>
+        </body>
+        </html>
+        """, 200
 
 @app.route('/health')
 def health():
