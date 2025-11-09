@@ -58,8 +58,8 @@ tunnels:
     addr: 5003
     inspect: false
   group4-grafana:
-    proto: http
-    addr: 5007
+      proto: http
+      addr: 5007
     inspect: false
 NGROK_EOF
 
@@ -128,7 +128,6 @@ docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "NAMES|group4"
 echo ""
 echo "Test endpoints:"
 for port in 5000 5003 5006 5007; do
-    response=\$(curl -s -o /dev/null -w "%{http_code}" -m 2 http://localhost:\$port 2>/dev/null)
     if [ "\$response" == "200" ] || [ "\$response" == "302" ] || [ "\$response" == "303" ]; then
         echo "✅ Port \$port: HTTP \$response"
     else

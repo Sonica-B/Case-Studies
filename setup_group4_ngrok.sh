@@ -76,9 +76,7 @@ GROUP4_NGROK_PORT=5008
 # Save port configuration for other scripts
 echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
 
-# Create proper ngrok config for GROUP4 with permanent domain
-# NOTE: Free plan limited to 3 endpoints - using only essential services
-# IMPORTANT: Only ml-api uses the permanent domain; others get random URLs
+# Create proper ngrok config for GROUP4 with permanent domain (API only)
 cat > ngrok-group4.yml << NGROK_CONFIG
 version: "2"
 authtoken: $NGROK_AUTHTOKEN
@@ -89,14 +87,6 @@ tunnels:
     addr: 5000
     hostname: unremounted-unejective-tracey.ngrok-free.dev
     host_header: "localhost:5000"
-    inspect: false
-  ml-local:
-    proto: http
-    addr: 5003
-    inspect: false
-  grafana:
-    proto: http
-    addr: 5007
     inspect: false
 NGROK_CONFIG
 
@@ -124,45 +114,63 @@ if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; the
     echo -e "${YELLOW}  https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
     echo
 
-    # Get all tunnel URLs
-    echo -e "${GREEN}All Service URLs:${NC}"
-    curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels | python3 -c "
-import json, sys
+    echo "API tunnel is live on your permanent domain."
+    echo "Configure TEAMMATE_NGROK_TOKEN to expose Local + Grafana + Prometheus via a second ngrok instance."
+    if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
+        echo ""
+        echo -e "${YELLOW}Starting teammate's ngrok on port 5009...${NC}"
+        if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+            LOCAL_DOMAIN_BLOCK="    hostname: $TEAMMATE_NGROK_DOMAIN\n    host_header: \"localhost:5003\""
+        else
+            LOCAL_DOMAIN_BLOCK=""
+        fi
+
+        cat > ngrok-teammate.yml << NGROK_TEAMMATE
+version: "2"
+authtoken: $TEAMMATE_NGROK_TOKEN
+web_addr: 127.0.0.1:5009
+tunnels:
+  ml-local:
+    proto: http
+    addr: 5003
+$(echo -e "$LOCAL_DOMAIN_BLOCK")
+    inspect: false
+  grafana:
+    proto: http
+    addr: 5007
+    inspect: false
+  prometheus:
+    proto: http
+    addr: 5006
+    inspect: false
+NGROK_TEAMMATE
+
+        nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
+        sleep 8
+        if curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+            echo -e "${GREEN}Teammate ngrok started successfully on port 5009${NC}"
+            curl -s http://localhost:5009/api/tunnels | python3 -c "import json, sys
 try:
     data = json.load(sys.stdin)
-    services = {}
-
-    # Collect unique HTTPS URLs
     for tunnel in data.get('tunnels', []):
-        if tunnel.get('proto') == 'https':
-            name = tunnel.get('name', '')
-            url = tunnel.get('public_url', '')
-
-            # Map to service, avoid duplicates
-            if 'ml-api' in name and 'ml-api' not in services:
-                services['ml-api'] = url
-            elif 'ml-local' in name and 'ml-local' not in services:
-                services['ml-local'] = url
-            elif 'grafana' in name and 'grafana' not in services:
-                services['grafana'] = url
-
-    # Display each with its unique URL
-    if services.get('ml-api'):
-        print(f'  🎨 CLIP Model (API):     {services[\"ml-api\"]}')
-    if services.get('ml-local'):
-        print(f'  🎤 Wav2Vec2 (Local):     {services[\"ml-local\"]}')
-    if services.get('grafana'):
-        print(f'  📈 Grafana Dashboard:    {services[\"grafana\"]}')
-
-    print()
-    if len(services) == 3:
-        print('  ✅ All 3 services have unique URLs!')
-    else:
-        print(f'  ⚠️  Only {len(services)} services detected')
-
+        name = tunnel.get('name', '')
+        url = tunnel.get('public_url', '')
+        if not url:
+            continue
+        if 'ml-local' in name:
+            print(f'  ?? Wav2Vec2 (Local): {url}')
+        elif 'grafana' in name:
+            print(f'  ?? Grafana: {url}')
+        elif 'prometheus' in name:
+            print(f'  ?? Prometheus: {url}')
 except Exception as e:
-    print(f'  Error parsing URLs: {e}')
-"
+    print(f'  Error parsing teammate tunnels: {e}')"
+        else
+            echo -e "${RED}??  Teammate ngrok failed to start (see ngrok-teammate.log)${NC}"
+        fi
+    else
+        echo -e "${YELLOW}??  TEAMMATE_NGROK_TOKEN not set. Local product, Grafana, and Prometheus remain private.${NC}"
+    fi
 
     echo
     echo -e "${BLUE}========================================${NC}"

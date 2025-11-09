@@ -148,11 +148,11 @@ TEAMMATE_NGROK_DOMAIN=\${TEAMMATE_NGROK_DOMAIN}
 
 # Port configuration
 API_GRADIO_PORT=5000
-API_METRICS_PORT=5001
-API_NODE_EXPORTER_PORT=5002
+API_METRICS_PORT=8000
+API_NODE_EXPORTER_PORT=9100
 LOCAL_GRADIO_PORT=5003
-LOCAL_METRICS_PORT=5004
-LOCAL_NODE_EXPORTER_PORT=5005
+LOCAL_METRICS_PORT=8001
+LOCAL_NODE_EXPORTER_PORT=9101
 PROMETHEUS_PORT=5006
 GRAFANA_PORT=5007
 
@@ -336,11 +336,11 @@ test_endpoint() {
 
 # Test each service
 test_endpoint "API Product" 5000 "/"
-test_endpoint "API Metrics" 5001 "/metrics"
-test_endpoint "API Node Export" 5002 "/metrics"
+test_endpoint "API Metrics" 8000 "/metrics"
+test_endpoint "API Node Export" 9100 "/metrics"
 test_endpoint "Local Product" 5003 "/"
-test_endpoint "Local Metrics" 5004 "/metrics"
-test_endpoint "Local Node Export" 5005 "/metrics"
+test_endpoint "Local Metrics" 8001 "/metrics"
+test_endpoint "Local Node Export" 9101 "/metrics"
 test_endpoint "Prometheus" 5006 "/-/ready"
 test_endpoint "Grafana" 5007 "/api/health"
 EOF
@@ -443,6 +443,13 @@ if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo ""
     echo "Setting up teammate's ngrok for ml-local, grafana, and prometheus..."
 
+    # Allow optional reserved domain for the local product
+    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+        LOCAL_DOMAIN_BLOCK="    hostname: $TEAMMATE_NGROK_DOMAIN\n    host_header: \"localhost:5003\""
+    else
+        LOCAL_DOMAIN_BLOCK=""
+    fi
+
     # Create config with teammate's token (3 endpoints)
     cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
@@ -452,6 +459,7 @@ tunnels:
   ml-local:
     proto: http
     addr: 5003
+$(echo -e "$LOCAL_DOMAIN_BLOCK")
     inspect: false
   grafana:
     proto: http
@@ -460,22 +468,24 @@ tunnels:
   prometheus:
     proto: http
     addr: 5006
-    hostname: $TEAMMATE_NGROK_DOMAIN
-    host_header: "localhost:5006"
     inspect: false
 NGROK_TEAMMATE
 
     # Start second ngrok process on port 5009
     nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
     echo "Started teammate's ngrok on port 5009"
-    echo "  - ML-Local: Will get random URL"
-    echo "  - Grafana: Will get random URL"
-    echo "  - Prometheus: Will use $TEAMMATE_NGROK_DOMAIN"
+    if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
+        echo "  - ML-Local: https://$TEAMMATE_NGROK_DOMAIN"
+    else
+        echo "  - ML-Local: Will get random URL"
+    fi
+    echo "  - Grafana: Will get random URL (maps to 5007)"
+    echo "  - Prometheus: Will get random URL"
     sleep 5
 else
     echo ""
-    echo "⚠️  No teammate token configured - only ML-API will be exposed"
-    echo "  To expose all 4 services, run ./setup_tokens.sh and add teammate's token"
+    echo "?s??,?  No teammate token configured - Local product and Grafana will not have public URLs"
+    echo "  To expose everything, run ./setup_tokens.sh and add teammate's token"
 fi
 
 # Get URLs
@@ -571,15 +581,15 @@ echo "2. Via SSH Tunnel (local access):"
 echo "   ./ssh_tunnel.sh $VM_USER"
 echo "   Then use: http://localhost:5000, etc."
 echo
-print_color "$YELLOW" "Port Range: 5000-5009"
-print_color "$YELLOW" "Your ngrok web interface: Port 5008 (ML-API, ML-Local, Grafana)"
+print_color "$YELLOW" "Port Range: 5000-5009 (Grafana now exposed on 5007)"
+print_color "$YELLOW" "Your ngrok web interface: Port 5008 (API tunnel)"
 
 # Check if teammate token was loaded
 if ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "[ -f ~/.envrc ] && source ~/.envrc && [ -n \"\$TEAMMATE_NGROK_TOKEN\" ] && echo 'yes'" 2>/dev/null | grep -q "yes"; then
-    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5009 (Prometheus)"
-    print_color "$GREEN" "✅ All 4 services exposed (bypassed 3-endpoint limit!)"
+    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5009 (Local, Grafana, Prometheus)"
+    print_color "$GREEN" "?o. All public tunnels are live (two ngrok accounts)"
 else
-    print_color "$YELLOW" "Note: Prometheus not exposed (no teammate token configured)"
+    print_color "$YELLOW" "Note: Local product, Grafana, and Prometheus are not exposed (no teammate token configured)"
 fi
 
 print_color "$YELLOW" "To check ngrok status on VM: ssh to VM and run 'curl http://localhost:5008/api/tunnels'"

@@ -53,7 +53,7 @@ check_port() {
 # Check local ports
 print_color "$YELLOW" "Checking local port availability..."
 ports_available=true
-for port in 5000 5001 5002 5003 5004 5005 5006 5007; do
+for port in 5000 5003 5006 5007 8000 8001 9100 9101; do
     if ! check_port $port; then
         ports_available=false
     fi
@@ -77,11 +77,11 @@ echo
 # Create the SSH tunnel with all ports
 SSH_CMD="ssh -i $SSH_KEY -N \
     -L 5000:localhost:5000 \
-    -L 5001:localhost:5001 \
-    -L 5002:localhost:5002 \
+    -L 8000:localhost:8000 \
+    -L 9100:localhost:9100 \
     -L 5003:localhost:5003 \
-    -L 5004:localhost:5004 \
-    -L 5005:localhost:5005 \
+    -L 8001:localhost:8001 \
+    -L 9101:localhost:9101 \
     -L 5006:localhost:5006 \
     -L 5007:localhost:5007 \
     -p $VM_PORT \
@@ -107,11 +107,11 @@ if kill -0 $SSH_PID 2>/dev/null; then
     print_color "$BLUE" "========================================="
     echo
     echo "  API Product:       http://localhost:5000"
-    echo "  API Metrics:       http://localhost:5001/metrics"
-    echo "  API Node Exporter: http://localhost:5002/metrics"
+    echo "  API Metrics:       http://localhost:8000/metrics"
+    echo "  API Node Exporter: http://localhost:9100/metrics"
     echo "  Local Product:     http://localhost:5003"
-    echo "  Local Metrics:     http://localhost:5004/metrics"
-    echo "  Local Node Exporter: http://localhost:5005/metrics"
+    echo "  Local Metrics:     http://localhost:8001/metrics"
+    echo "  Local Node Exporter: http://localhost:9101/metrics"
     echo "  Prometheus:        http://localhost:5006"
     echo "  Grafana:           http://localhost:5007 (admin/admin)"
     echo

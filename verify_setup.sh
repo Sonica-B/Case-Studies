@@ -116,8 +116,8 @@ fi
 
 # Check port configuration
 print_header "Port Configuration"
-print_color "$YELLOW" "Configured port range: 5000-5009"
-ports=(5000 5001 5002 5003 5004 5005 5006 5007)
+print_color "$YELLOW" "Key ports: 5000, 5003, 5006, 5007, 8000, 8001, 9100, 9101"
+ports=(5000 5003 5006 5007 8000 8001 9100 9101)
 for port in "${ports[@]}"; do
     if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
         print_color "$YELLOW" "⚠️ Port $port is currently in use locally"
@@ -180,14 +180,13 @@ fi
 # Port allocation info
 print_header "Port Allocation for Google Sheet"
 print_color "$BLUE" "Your team's port allocation:"
-echo "  Range: 5000-5009"
 echo "  - 5000: API Product (Gradio UI)"
-echo "  - 5001: API Metrics (Prometheus)"
-echo "  - 5002: API Node Exporter"
 echo "  - 5003: Local Product (Gradio UI)"
-echo "  - 5004: Local Metrics (Prometheus)"
-echo "  - 5005: Local Node Exporter"
 echo "  - 5006: Prometheus Server"
-echo "  - 5007: Grafana Dashboard"
+echo "  - 5007: Grafana Dashboard (host) / 3000 in-container"
+echo "  - 8000: API Prometheus metrics"
+echo "  - 8001: Local Prometheus metrics"
+echo "  - 9100: API Node Exporter"
+echo "  - 9101: Local Node Exporter"
 
 echo

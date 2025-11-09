@@ -170,10 +170,10 @@ with gr.Blocks(title="Scene Mood (Local) - Prometheus") as demo:
         btn_ia.click(predict_image_audio_local, inputs=[img, aud, alpha_ia], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
-    # Start Prometheus metrics server on port 5004
-    start_http_server(5004)
-    print("Prometheus metrics server started on port 5004")
-    print("Metrics available at http://localhost:5004/metrics")
+    # Start Prometheus metrics server on the standard port (8000)
+    start_http_server(8000)
+    print("Prometheus metrics server started on port 8000")
+    print("Metrics available at http://localhost:8000/metrics")
 
     # Launch Gradio app on port 5003
     demo.launch(server_name="0.0.0.0", server_port=5003)

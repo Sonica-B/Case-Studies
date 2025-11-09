@@ -15,10 +15,10 @@
 #     ./fix_ngrok_config.sh "teammate_token" "decayless-brenna-unadventurous.ngrok-free.dev"
 #
 # RESULT:
-#   - Your ngrok (port 5008): ML-API, ML-Local, Grafana
+#   - Your ngrok (port 5008): ML-API only (permanent domain)
 #   - Your permanent domain: unremounted-unejective-tracey.ngrok-free.dev
-#   - Teammate ngrok (port 5009): Prometheus
-#   - Teammate domain: decayless-brenna-unadventurous.ngrok-free.dev
+#   - Teammate ngrok (port 5009): Local Product + Grafana + Prometheus
+#   - Optional teammate domain (used for Local Product): decayless-brenna-unadventurous.ngrok-free.dev
 # ============================================================================
 
 # Colors
@@ -187,7 +187,7 @@ if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token for other services...${NC}"
 
     # Create config for ml-local, grafana, and prometheus
-    # Prometheus gets the permanent domain, others get random
+    # Local product gets the reserved domain; Grafana/Prometheus use random URLs
     cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
@@ -196,6 +196,8 @@ tunnels:
   ml-local:
     proto: http
     addr: 5003
+    hostname: $TEAMMATE_NGROK_DOMAIN
+    host_header: "localhost:5003"
     inspect: false
   grafana:
     proto: http
@@ -204,8 +206,6 @@ tunnels:
   prometheus:
     proto: http
     addr: 5006
-    hostname: $TEAMMATE_NGROK_DOMAIN
-    host_header: "localhost:5006"
     inspect: false
 NGROK_TEAMMATE
 
@@ -213,8 +213,8 @@ NGROK_TEAMMATE
     nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
     NGROK2_PID=$!
     echo "Started teammate's ngrok with PID: $NGROK2_PID on port 5009"
-    echo "  - Prometheus will use: $TEAMMATE_NGROK_DOMAIN"
-    echo "  - ML-Local and Grafana will get random URLs"
+    echo "  - ML-Local will use: $TEAMMATE_NGROK_DOMAIN"
+    echo "  - Grafana and Prometheus will get random URLs"
     sleep 5
 fi
 
@@ -348,15 +348,15 @@ echo "Your services are now accessible at:"
 echo -e "${YELLOW}https://unremounted-unejective-tracey.ngrok-free.dev${NC}"
 echo
 echo "Notes:"
-echo "  • Your ngrok: Port 5008 (ML-API, ML-Local, Grafana)"
+echo "  ??? Your ngrok: Port 5008 (ML-API only)"
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
-    echo "  • Teammate ngrok: Port 5009 (Prometheus)"
-    echo "  • Total endpoints: 4 (bypassed 3-endpoint limit!)"
+    echo "  ??? Teammate ngrok: Port 5009 (Local, Grafana, Prometheus)"
+    echo "  ??? Total endpoints: 4 (bypassed 3-endpoint limit!)"
+else
+    echo "  ??? Teammate ngrok: Not running (Local/Grafana/Prometheus stay private)"
 fi
-echo "  • Your services run on ports 5000-5007"
+echo "  ??? Your services run on ports 5000-5006 plus Grafana on 5007"
 echo
-
-REMOTE_FIX
 
 echo
 echo -e "${GREEN}========================================${NC}"

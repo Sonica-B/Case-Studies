@@ -2,18 +2,26 @@
   "dashboard": {
     "id": null,
     "title": "ML Model Monitoring Dashboard",
-    "tags": ["mlops", "monitoring"],
+    "tags": [
+      "mlops",
+      "monitoring"
+    ],
     "timezone": "browser",
     "panels": [
       {
         "id": 1,
         "title": "Total Inferences",
         "type": "graph",
-        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
-            "expr": "rate(ml_inference_total[5m])",
-            "legendFormat": "{{model}} - {{mode}} - {{execution_type}}",
+            "expr": "sum by (model_type, input_type) (rate(ml_inference_total[5m]))",
+            "legendFormat": "{{model_type}} - {{input_type}}",
             "refId": "A"
           }
         ]
@@ -22,11 +30,16 @@
         "id": 2,
         "title": "Inference Duration (p95)",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
-            "expr": "histogram_quantile(0.95, rate(ml_inference_duration_seconds_bucket[5m]))",
-            "legendFormat": "{{model}} - {{mode}}",
+            "expr": "rate(ml_request_duration_seconds_sum[5m]) / rate(ml_request_duration_seconds_count[5m])",
+            "legendFormat": "avg duration (s)",
             "refId": "A"
           }
         ]
@@ -35,7 +48,12 @@
         "id": 3,
         "title": "Active Users",
         "type": "stat",
-        "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+        "gridPos": {
+          "x": 0,
+          "y": 8,
+          "w": 6,
+          "h": 4
+        },
         "targets": [
           {
             "expr": "ml_active_users",
@@ -47,11 +65,17 @@
         "id": 4,
         "title": "Error Rate",
         "type": "stat",
-        "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+        "gridPos": {
+          "x": 6,
+          "y": 8,
+          "w": 6,
+          "h": 4
+        },
         "targets": [
           {
-            "expr": "rate(ml_errors_total[5m])",
-            "refId": "A"
+            "expr": "sum by (error_type) (rate(ml_errors_by_type_total[5m]))",
+            "refId": "A",
+            "legendFormat": "{{error_type}}"
           }
         ]
       },
@@ -59,7 +83,12 @@
         "id": 5,
         "title": "API Calls to HuggingFace",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "rate(ml_api_calls_total[5m])",
@@ -72,7 +101,12 @@
         "id": 6,
         "title": "Fusion Alpha Distribution",
         "type": "heatmap",
-        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "rate(ml_fusion_alpha_bucket[5m])",
@@ -85,11 +119,16 @@
         "id": 7,
         "title": "Prediction Confidence by Mood",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 16,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
-            "expr": "histogram_quantile(0.5, rate(ml_prediction_confidence_bucket[5m]))",
-            "legendFormat": "{{mood}}",
+            "expr": "histogram_quantile(0.5, sum(rate(ml_prediction_confidence_bucket[5m])) by (le))",
+            "legendFormat": "median confidence",
             "refId": "A"
           }
         ]
@@ -98,7 +137,12 @@
         "id": 8,
         "title": "Model Status",
         "type": "table",
-        "gridPos": {"x": 0, "y": 20, "w": 8, "h": 6},
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 8,
+          "h": 6
+        },
         "targets": [
           {
             "expr": "ml_model_loaded",
@@ -111,7 +155,12 @@
         "id": 9,
         "title": "GPU Availability",
         "type": "stat",
-        "gridPos": {"x": 8, "y": 20, "w": 4, "h": 6},
+        "gridPos": {
+          "x": 8,
+          "y": 20,
+          "w": 4,
+          "h": 6
+        },
         "targets": [
           {
             "expr": "ml_gpu_available",
@@ -123,7 +172,12 @@
         "id": 10,
         "title": "System Metrics - CPU Usage",
         "type": "graph",
-        "gridPos": {"x": 0, "y": 26, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 0,
+          "y": 26,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
@@ -136,7 +190,12 @@
         "id": 11,
         "title": "System Metrics - Memory Usage",
         "type": "graph",
-        "gridPos": {"x": 12, "y": 26, "w": 12, "h": 8},
+        "gridPos": {
+          "x": 12,
+          "y": 26,
+          "w": 12,
+          "h": 8
+        },
         "targets": [
           {
             "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",

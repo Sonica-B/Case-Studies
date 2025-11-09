@@ -40,5 +40,14 @@ echo You may be prompted for your SSH key password
 echo.
 
 REM Create SSH tunnel using WSL
-echo Starting tunnel to forward ports 5000-5007...
-wsl ssh -i %SSH_KEY% -N -L 5000:localhost:5000 -L 5001:localhost:5001 -L 5002:localhost:5002 -L 5003:localhost:5003 -L 5004:localhost:5004 -L 5005:localhost:5005 -L 5006:localhost:5006 -L 5007:localhost:5007 -p %VM_PORT% %VM_USER%@%VM_HOST%
+echo Starting tunnel to forward ports 5000,5003,5006,5007,8000,8001,9100,9101...
+wsl ssh -i %SSH_KEY% -N ^
+  -L 5000:localhost:5000 ^
+  -L 8000:localhost:8000 ^
+  -L 9100:localhost:9100 ^
+  -L 5003:localhost:5003 ^
+  -L 8001:localhost:8001 ^
+  -L 9101:localhost:9101 ^
+  -L 5006:localhost:5006 ^
+  -L 5007:localhost:5007 ^
+  -p %VM_PORT% %VM_USER%@%VM_HOST%

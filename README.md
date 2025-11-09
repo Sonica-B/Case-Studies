@@ -10,7 +10,7 @@ This project deploys two ML products (API-based and locally-executed) with compr
 - **Prometheus Monitoring** with 10+ custom metrics
 - **Grafana Dashboard** for visualization
 - **Docker Containerization** for all services
-- **Port Range**: 5000-5009 (exclusive allocation)
+- **Port Range**: 5000-5009 reserved for team endpoints with Grafana exposed on 5007 (still mapped to port 3000 inside the container)
 - **GROUP4 Isolation**: All containers/images prefixed with `group4-` to avoid conflicts
 
 ## 📁 Project Structure
@@ -42,7 +42,8 @@ Case-Studies/
 - SSH access to melnibone.wpi.edu:2222 (username: group4)
 - SSH key at `~/.ssh/vm` in WSL
 - HuggingFace API token
-- Ngrok authentication token
+- Ngrok authentication token (GROUP4 account)
+- Optional teammate ngrok token/domain for exposing the Local product + Grafana
 - Code pushed to GitHub branch `cs3`
 
 ### Deploy in 5 Minutes
@@ -64,6 +65,8 @@ Case-Studies/
    ```bash
    export HF_TOKEN="hf_xxxxxxxxxxxxxxxxxx"
    export NGROK_AUTHTOKEN="2xxxxxxxxxxxxxxxxxx"
+   export TEAMMATE_NGROK_TOKEN="2yyyyyyyyyyyyyyyyyy"        # second account
+   export TEAMMATE_NGROK_DOMAIN="decayless-brenna-unadventurous.ngrok-free.dev"  # optional reserved domain
    ```
 
 4. **Deploy to VM** (pulls from GitHub):
@@ -86,7 +89,11 @@ Case-Studies/
    ```
    Then access:
    - API Product: http://localhost:5000
+   - API Metrics: http://localhost:8000/metrics
+   - API Node Exporter: http://localhost:9100/metrics
    - Local Product: http://localhost:5003
+   - Local Metrics: http://localhost:8001/metrics
+   - Local Node Exporter: http://localhost:9101/metrics
    - Prometheus: http://localhost:5006
    - Grafana: http://localhost:5007 (admin/admin)
 
@@ -94,13 +101,13 @@ Case-Studies/
 
 Your team's exclusive ports:
 - **5000**: API Product (Gradio UI)
-- **5001**: API Metrics endpoint
-- **5002**: API Node Exporter
 - **5003**: Local Product (Gradio UI)
-- **5004**: Local Metrics endpoint
-- **5005**: Local Node Exporter
 - **5006**: Prometheus Server
-- **5007**: Grafana Dashboard
+- **5007**: Grafana Dashboard (exposed globally via ngrok)
+- **8000**: API Metrics endpoint
+- **8001**: Local Metrics endpoint
+- **9100**: API Node Exporter
+- **9101**: Local Node Exporter
 
 ## 🔍 Verification
 

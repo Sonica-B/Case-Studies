@@ -8,22 +8,22 @@ scrape_configs:
   # API Product - Python Application Metrics
   - job_name: 'gradio_app_api'
     static_configs:
-      - targets: ['ml-api:5001']
+      - targets: ['ml-api:8000']
 
   # API Product - Node Exporter
   - job_name: 'node_exporter_api'
     static_configs:
-      - targets: ['ml-api:5002']
+      - targets: ['ml-api:9100']
 
   # Local Product - Python Application Metrics
   - job_name: 'gradio_app_local'
     static_configs:
-      - targets: ['ml-local:5004']
+      - targets: ['ml-local:8000']
 
   # Local Product - Node Exporter
   - job_name: 'node_exporter_local'
     static_configs:
-      - targets: ['ml-local:5005']
+      - targets: ['ml-local:9100']
 
   # Prometheus itself
   - job_name: 'prometheus'

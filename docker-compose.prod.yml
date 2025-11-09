@@ -18,8 +18,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
       - "${API_GRADIO_PORT:-5000}:5000"
-      - "${API_METRICS_PORT:-5001}:5001"
-      - "${API_NODE_EXPORTER_PORT:-5002}:5002"
+      - "${API_METRICS_PORT:-8000}:8000"
+      - "${API_NODE_EXPORTER_PORT:-9100}:9100"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000"]
       interval: 30s
@@ -31,7 +31,7 @@ services:
       - ml-network
     labels:
       - "prometheus.io/scrape=true"
-      - "prometheus.io/port=5001"
+      - "prometheus.io/port=8000"
       - "prometheus.io/path=/metrics"
 
   # Locally Executed Product
@@ -51,8 +51,8 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     ports:
       - "${LOCAL_GRADIO_PORT:-5003}:5003"
-      - "${LOCAL_METRICS_PORT:-5004}:5004"
-      - "${LOCAL_NODE_EXPORTER_PORT:-5005}:5005"
+      - "${LOCAL_METRICS_PORT:-8001}:8000"
+      - "${LOCAL_NODE_EXPORTER_PORT:-9101}:9100"
     volumes:
       - model-cache:/models
       - model-cache:/root/.cache/huggingface
@@ -74,7 +74,7 @@ services:
               capabilities: [gpu]
     labels:
       - "prometheus.io/scrape=true"
-      - "prometheus.io/port=5004"
+      - "prometheus.io/port=8000"
       - "prometheus.io/path=/metrics"
 
   # Prometheus Server

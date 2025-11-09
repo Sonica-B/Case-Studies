@@ -64,10 +64,10 @@ if [ -z "$NGROK_AUTHTOKEN" ]; then
 fi
 
 echo
-echo -e "${YELLOW}Teammate's Ngrok Configuration (for Prometheus):${NC}"
+echo -e "${YELLOW}Teammate's Ngrok Configuration (Local & Grafana tunnels):${NC}"
 read -p "Enter teammate's Ngrok auth token (or press Enter to skip): " TEAMMATE_NGROK_TOKEN
 if [ -z "$TEAMMATE_NGROK_TOKEN" ]; then
-    echo -e "${YELLOW}No teammate token provided. Prometheus will not be exposed.${NC}"
+    echo -e "${YELLOW}No teammate token provided. Local product and Grafana will not have dedicated tunnels.${NC}"
 else
     echo -e "${GREEN}Teammate token will be saved for Prometheus endpoint.${NC}"
     # Always set the teammate's permanent domain when token is provided
@@ -158,7 +158,7 @@ send "# GROUP4 Environment Variables\r"
 send "export HF_TOKEN=\"$HF_TOKEN\"\r"
 send "export NGROK_AUTHTOKEN=\"$NGROK_AUTHTOKEN\"\r"
 send "\r"
-send "# Teammate's Ngrok for Prometheus (4th service)\r"
+send "# Teammate's Ngrok for Local + Grafana exposure\r"
 send "export TEAMMATE_NGROK_TOKEN=\"$TEAMMATE_NGROK_TOKEN\"\r"
 send "export TEAMMATE_NGROK_DOMAIN=\"$TEAMMATE_NGROK_DOMAIN\"\r"
 send "\r"
@@ -202,7 +202,7 @@ cat > ~/.envrc << 'ENVRC'
 export HF_TOKEN="$HF_TOKEN"
 export NGROK_AUTHTOKEN="$NGROK_AUTHTOKEN"
 
-# Teammate's Ngrok for Prometheus (4th service)
+# Teammate's Ngrok for Local + Grafana exposure
 export TEAMMATE_NGROK_TOKEN="$TEAMMATE_NGROK_TOKEN"
 export TEAMMATE_NGROK_DOMAIN="$TEAMMATE_NGROK_DOMAIN"
 

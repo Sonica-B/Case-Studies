@@ -14,8 +14,8 @@ services:
       - GRADIO_SERVER_PORT=5000
     ports:
       - "5000:5000"  # Gradio UI
-      - "5001:5001"  # Python metrics
-      - "5002:5002"  # Node exporter
+      - "8000:8000"  # Python metrics (standard port)
+      - "9100:9100"  # Node exporter (standard port)
     restart: unless-stopped
     networks:
       - group4-network
@@ -32,9 +32,9 @@ services:
       - GRADIO_SERVER_NAME=0.0.0.0
       - GRADIO_SERVER_PORT=5003
     ports:
-      - "5003:5003"  # Gradio UI
-      - "5004:5004"  # Python metrics
-      - "5005:5005"  # Node exporter
+      - "5003:5003"    # Gradio UI
+      - "8001:8000"    # Python metrics (map host 8001 to standard 8000 in-container)
+      - "9101:9100"    # Node exporter (map host 9101 to standard 9100 in-container)
     volumes:
       - group4-model-cache:/root/.cache/huggingface
     restart: unless-stopped
