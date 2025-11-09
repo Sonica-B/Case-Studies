@@ -14,8 +14,8 @@ services:
       - GRADIO_SERVER_PORT=5000
     ports:
       - "5000:5000"  # Gradio UI
-      - "5001:5001"  # Python metrics
-      - "5002:5002"  # Node exporter
+      - "8000:8000"  # Python metrics (standard port)
+      - "9100:9100"  # Node exporter (standard port)
     restart: unless-stopped
     networks:
       - group4-network
@@ -33,8 +33,8 @@ services:
       - GRADIO_SERVER_PORT=5003
     ports:
       - "5003:5003"  # Gradio UI
-      - "5004:5004"  # Python metrics
-      - "5005:5005"  # Node exporter
+      - "8001:8000"  # Python metrics (standard port, mapped to 8001 to avoid conflict)
+      - "9101:9100"  # Node exporter (standard port, mapped to 9101 to avoid conflict)
     volumes:
       - group4-model-cache:/root/.cache/huggingface
     restart: unless-stopped
@@ -67,7 +67,7 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     ports:
-      - "5007:3000"
+      - "3000:3000"  # Changed to standard Grafana port for professor's access
     volumes:
       - group4-grafana-data:/var/lib/grafana
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
