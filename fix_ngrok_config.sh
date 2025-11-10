@@ -17,7 +17,7 @@
 # RESULT:
 #   - Your ngrok (port 5008): ML-API only (permanent domain)
 #   - Your permanent domain: unremounted-unejective-tracey.ngrok-free.dev
-#   - Teammate ngrok (port 5010): Local Product + Grafana + Prometheus
+#   - Teammate ngrok (port 5004): Local Product + Grafana + Prometheus
 #   - Optional teammate domain (used for Local Product): decayless-brenna-unadventurous.ngrok-free.dev
 # ============================================================================
 
@@ -191,7 +191,7 @@ if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5010
+web_addr: 127.0.0.1:5004
 tunnels:
   ml-local:
     proto: http
@@ -212,7 +212,7 @@ NGROK_TEAMMATE
     # Start second ngrok process with teammate's account
     nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
     NGROK2_PID=$!
-    echo "Started teammate's ngrok with PID: $NGROK2_PID on port 5010"
+    echo "Started teammate's ngrok with PID: $NGROK2_PID on port 5004"
     echo "  - ML-Local will use: $TEAMMATE_NGROK_DOMAIN"
     echo "  - Grafana and Prometheus will get random URLs"
     sleep 5
@@ -299,10 +299,10 @@ except Exception as e:
     echo -e "${BLUE}========================================${NC}"
 
     # Check second ngrok if running
-if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5010/api/tunnels > /dev/null 2>&1; then
+if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5004/api/tunnels > /null 2>&1; then
         echo
         echo -e "${BLUE}Teammate's Ngrok (Prometheus):${NC}"
-        curl -s http://localhost:5010/api/tunnels | python3 -c "
+        curl -s http://localhost:5004/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -350,7 +350,7 @@ echo
 echo "Notes:"
 echo "  ??? Your ngrok: Port 5008 (ML-API only)"
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
-    echo "  ??? Teammate ngrok: Port 5010 (Local, Grafana, Prometheus)"
+    echo "  ??? Teammate ngrok: Port 5004 (Local, Grafana, Prometheus)"
     echo "  ??? Total endpoints: 4 (bypassed 3-endpoint limit!)"
 else
     echo "  ??? Teammate ngrok: Not running (Local/Grafana/Prometheus stay private)"

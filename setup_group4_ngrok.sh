@@ -118,7 +118,7 @@ if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; the
     echo "Configure TEAMMATE_NGROK_TOKEN to expose Local + Grafana + Prometheus via a second ngrok instance."
     if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
         echo ""
-        echo -e "${YELLOW}Starting teammate's ngrok on port 5010...${NC}"
+        echo -e "${YELLOW}Starting teammate's ngrok on port 5004...${NC}"
         if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
             LOCAL_DOMAIN_BLOCK="    hostname: $TEAMMATE_NGROK_DOMAIN\n    host_header: \"localhost:5003\""
         else
@@ -128,7 +128,7 @@ if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; the
         cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5010
+web_addr: 127.0.0.1:5004
 tunnels:
   ml-local:
     proto: http
@@ -147,9 +147,9 @@ NGROK_TEAMMATE
 
         nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
         sleep 8
-        if curl -s http://localhost:5010/api/tunnels > /dev/null 2>&1; then
-            echo -e "${GREEN}Teammate ngrok started successfully on port 5010${NC}"
-            curl -s http://localhost:5010/api/tunnels | python3 -c "import json, sys
+        if curl -s http://localhost:5004/api/tunnels > /dev/null 2>&1; then
+            echo -e "${GREEN}Teammate ngrok started successfully on port 5004${NC}"
+            curl -s http://localhost:5004/api/tunnels | python3 -c "import json, sys
 try:
     data = json.load(sys.stdin)
     for tunnel in data.get('tunnels', []):
