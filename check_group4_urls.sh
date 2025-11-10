@@ -163,12 +163,12 @@ else
     fi
 fi
 
-# Check for second ngrok on port 5009 (teammate's account)
+# Check for second ngrok on port 5010 (teammate's account)
 echo
-if curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Second ngrok running on port 5009 (teammate account)${NC}"
+if curl -s http://localhost:5010/api/tunnels > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ Second ngrok running on port 5010 (teammate account)${NC}"
     echo -e "${BLUE}Prometheus URL:${NC}"
-    curl -s http://localhost:5009/api/tunnels | python3 -c "
+    curl -s http://localhost:5010/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)

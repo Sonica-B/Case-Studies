@@ -454,7 +454,7 @@ if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
-web_addr: 127.0.0.1:5009
+web_addr: 127.0.0.1:5010
 tunnels:
   ml-local:
     proto: http
@@ -471,9 +471,9 @@ $(echo -e "$LOCAL_DOMAIN_BLOCK")
     inspect: false
 NGROK_TEAMMATE
 
-    # Start second ngrok process on port 5009
+    # Start second ngrok process on port 5010
     nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
-    echo "Started teammate's ngrok on port 5009"
+    echo "Started teammate's ngrok on port 5010"
     if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
         echo "  - ML-Local: https://$TEAMMATE_NGROK_DOMAIN"
     else
@@ -536,10 +536,10 @@ except Exception as e:
 "
 
 # Check teammate's ngrok for other services if running
-if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5009/api/tunnels > /dev/null 2>&1; then
+if [ -n "$TEAMMATE_NGROK_TOKEN" ] && curl -s http://localhost:5010/api/tunnels > /dev/null 2>&1; then
     echo ""
-    echo "Teammate's Ngrok Services (Port 5009):"
-    curl -s http://localhost:5009/api/tunnels | python3 -c "
+    echo "Teammate's Ngrok Services (Port 5010):"
+    curl -s http://localhost:5010/api/tunnels | python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -586,7 +586,7 @@ print_color "$YELLOW" "Your ngrok web interface: Port 5008 (API tunnel)"
 
 # Check if teammate token was loaded
 if ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "[ -f ~/.envrc ] && source ~/.envrc && [ -n \"\$TEAMMATE_NGROK_TOKEN\" ] && echo 'yes'" 2>/dev/null | grep -q "yes"; then
-    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5009 (Local, Grafana, Prometheus)"
+    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5010 (Local, Grafana, Prometheus)"
     print_color "$GREEN" "?o. All public tunnels are live (two ngrok accounts)"
 else
     print_color "$YELLOW" "Note: Local product, Grafana, and Prometheus are not exposed (no teammate token configured)"
