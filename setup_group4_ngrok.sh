@@ -115,7 +115,7 @@ if curl -s http://localhost:$GROUP4_NGROK_PORT/api/tunnels > /dev/null 2>&1; the
     echo
 
     echo "API tunnel is live on your permanent domain."
-    echo "Configure TEAMMATE_NGROK_TOKEN to expose Local + Grafana + Prometheus via a second ngrok instance."
+    echo "Configure TEAMMATE_NGROK_TOKEN to expose Local + Grafana via a second ngrok instance (Prometheus via SSH)."
     if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
         echo ""
         echo -e "${YELLOW}Starting teammate's ngrok on port 5004...${NC}"
@@ -139,10 +139,6 @@ $(echo -e "$LOCAL_DOMAIN_BLOCK")
     proto: http
     addr: 5007
     inspect: false
-  prometheus:
-    proto: http
-    addr: 5006
-    inspect: false
 NGROK_TEAMMATE
 
         nohup ngrok start --all --config ngrok-teammate.yml > ngrok-teammate.log 2>&1 &
@@ -158,18 +154,17 @@ try:
         if not url:
             continue
         if 'ml-local' in name:
-            print(f'  ?? Wav2Vec2 (Local): {url}')
+            print(f'  🎤 Wav2Vec2 (Local): {url}')
         elif 'grafana' in name:
-            print(f'  ?? Grafana: {url}')
-        elif 'prometheus' in name:
-            print(f'  ?? Prometheus: {url}')
+            print(f'  📈 Grafana: {url}')
 except Exception as e:
     print(f'  Error parsing teammate tunnels: {e}')"
         else
             echo -e "${RED}??  Teammate ngrok failed to start (see ngrok-teammate.log)${NC}"
         fi
     else
-        echo -e "${YELLOW}??  TEAMMATE_NGROK_TOKEN not set. Local product, Grafana, and Prometheus remain private.${NC}"
+        echo -e "${YELLOW}??  TEAMMATE_NGROK_TOKEN not set. Local product and Grafana remain private.${NC}"
+        echo -e "${YELLOW}   Prometheus is available via SSH tunnel on localhost:5006.${NC}"
     fi
 
     echo

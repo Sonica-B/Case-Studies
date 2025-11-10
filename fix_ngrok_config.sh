@@ -186,8 +186,8 @@ if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo
     echo -e "${YELLOW}Step 3b: Starting second ngrok with teammate's token for other services...${NC}"
 
-    # Create config for ml-local, grafana, and prometheus
-    # Local product gets the reserved domain; Grafana/Prometheus use random URLs
+    # Create config for ml-local and grafana
+    # Local product gets the reserved domain; Grafana uses a random URL
     cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
@@ -203,10 +203,6 @@ tunnels:
     proto: http
     addr: 5007
     inspect: false
-  prometheus:
-    proto: http
-    addr: 5006
-    inspect: false
 NGROK_TEAMMATE
 
     # Start second ngrok process with teammate's account
@@ -214,7 +210,8 @@ NGROK_TEAMMATE
     NGROK2_PID=$!
     echo "Started teammate's ngrok with PID: $NGROK2_PID on port 5004"
     echo "  - ML-Local will use: $TEAMMATE_NGROK_DOMAIN"
-    echo "  - Grafana and Prometheus will get random URLs"
+    echo "  - Grafana will get a random URL"
+    echo "  - Prometheus remains accessible via SSH tunnel (localhost:5006)"
     sleep 5
 fi
 

@@ -438,10 +438,10 @@ sleep 8
 # Save port configuration for other scripts
 echo "export GROUP4_NGROK_PORT=$GROUP4_NGROK_PORT" > ~/.group4_ngrok_port
 
-# Start teammate's ngrok for OTHER services (ml-local, grafana, prometheus)
+# Start teammate's ngrok for Local + Grafana
 if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
     echo ""
-    echo "Setting up teammate's ngrok for ml-local, grafana, and prometheus..."
+    echo "Setting up teammate's ngrok for ml-local and grafana..."
 
     # Allow optional reserved domain for the local product
     if [ -n "$TEAMMATE_NGROK_DOMAIN" ]; then
@@ -450,7 +450,7 @@ if [ -n "$TEAMMATE_NGROK_TOKEN" ]; then
         LOCAL_DOMAIN_BLOCK=""
     fi
 
-    # Create config with teammate's token (3 endpoints)
+    # Create config with teammate's token (2 endpoints)
     cat > ngrok-teammate.yml << NGROK_TEAMMATE
 version: "2"
 authtoken: $TEAMMATE_NGROK_TOKEN
@@ -465,10 +465,6 @@ $(echo -e "$LOCAL_DOMAIN_BLOCK")
     proto: http
     addr: 5007
     inspect: false
-  prometheus:
-    proto: http
-    addr: 5006
-    inspect: false
 NGROK_TEAMMATE
 
     # Start second ngrok process on port 5004
@@ -480,12 +476,13 @@ NGROK_TEAMMATE
         echo "  - ML-Local: Will get random URL"
     fi
     echo "  - Grafana: Will get random URL (maps to 5007)"
-    echo "  - Prometheus: Will get random URL"
+    echo "  - Prometheus: Use SSH tunnel (localhost:5006)"
     sleep 5
 else
     echo ""
     echo "?s??,?  No teammate token configured - Local product and Grafana will not have public URLs"
-    echo "  To expose everything, run ./setup_tokens.sh and add teammate's token"
+    echo "  Prometheus is available via SSH tunnel (localhost:5006) even without ngrok."
+    echo "  To expose Local/Grafana publicly, run ./setup_tokens.sh and add teammate's token"
 fi
 
 # Get URLs
@@ -548,16 +545,15 @@ try:
             name = tunnel.get('name', '')
             url = tunnel.get('public_url', '')
             if 'ml-local' in name:
-                print(f'  🎤 Wav2Vec2 (ML-Local): {url}')
+                print(f'  dYZ Wav2Vec2 (ML-Local): {url}')
             elif 'grafana' in name:
-                print(f'  📈 Grafana Dashboard: {url}')
-            elif 'prometheus' in name:
-                print(f'  📊 Prometheus: {url}')
+                print(f'  dY\"^ Grafana Dashboard: {url}')
 except: pass
 "
 else
     echo ""
-    echo "⚠️  ML-Local, Grafana, and Prometheus not exposed (no teammate token)"
+    echo "⚠️  ML-Local and Grafana not exposed (no teammate token)"
+    echo "Prometheus remains available via SSH tunnel (localhost:5006)."
 fi
 EOF
 
@@ -586,7 +582,7 @@ print_color "$YELLOW" "Your ngrok web interface: Port 5008 (API tunnel)"
 
 # Check if teammate token was loaded
 if ssh -i "$SSH_KEY" -p $VM_PORT $VM_USER@$VM_HOST "[ -f ~/.envrc ] && source ~/.envrc && [ -n \"\$TEAMMATE_NGROK_TOKEN\" ] && echo 'yes'" 2>/dev/null | grep -q "yes"; then
-    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5004 (Local, Grafana, Prometheus)"
+    print_color "$YELLOW" "Teammate's ngrok web interface: Port 5004 (Local, Grafana)"
     print_color "$GREEN" "?o. All public tunnels are live (two ngrok accounts)"
 else
     print_color "$YELLOW" "Note: Local product, Grafana, and Prometheus are not exposed (no teammate token configured)"
@@ -594,3 +590,4 @@ fi
 
 print_color "$YELLOW" "To check ngrok status on VM: ssh to VM and run 'curl http://localhost:5008/api/tunnels'"
 echo
+
