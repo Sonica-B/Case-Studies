@@ -262,4 +262,7 @@ with gr.Blocks(title="Scene Mood (API)") as demo:
         btn_ia.click(predict_image_audio, inputs=[img, aud, alpha_ia], outputs=[out_i1, out_i2, out_i3])
 
 if __name__ == "__main__":
-    demo.launch()
+    import os
+    port = int(os.environ.get("PORT", 7860))
+    print(f"Starting Gradio on 0.0.0.0:{port}")
+    demo.launch(server_name="0.0.0.0", server_port=port)
