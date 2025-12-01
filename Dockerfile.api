@@ -1,0 +1,36 @@
+# Dockerfile.api - Single image for ALL cloud providers (GCP, AWS, Azure)
+
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg curl && rm -rf /var/lib/apt/lists/*
+
+# MINIMAL Python packages - API calls only, NO torch/transformers!
+RUN pip install --no-cache-dir \
+    "gradio>=4.29.0" \
+    "numpy<2" \
+    pillow \
+    pydub \
+    ffmpeg-python \
+    huggingface_hub \
+    requests
+
+# Copy application files
+COPY fusion-app/ ./fusion-app/
+
+# Environment
+ENV PYTHONUNBUFFERED=1
+
+# Default port (Cloud Run will override via PORT env var)
+ENV PORT=7860
+EXPOSE 7860
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/ || exit 1
+
+WORKDIR /app/fusion-app
+CMD ["python", "app_api.py"]
