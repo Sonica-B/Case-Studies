@@ -1,0 +1,315 @@
+name: Deploy to AWS ECS
+
+on:
+    workflow_run:
+        workflows: ["Tests"]
+        types:
+            - completed
+        branches:
+            - cs4
+
+env:
+    AWS_REGION: us-east-1
+    ECS_CLUSTER: cs553
+    ECS_TASK_FAMILY: scene-mood-classifier
+    CONTAINER_NAME: app
+    CONTAINER_PORT: "7860"
+
+jobs:
+    deploy:
+        name: Build and Deploy to AWS ECS
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - id: notify_start
+              name: Notify Discord - Deployment Started
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD }}
+                    content: >
+                            **AWS ECS Deployment Started**
+
+                            **Status:** BUILDING
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+                            **Actor:** ${{ github.actor }}
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+
+                            *Triggered by successful test completion*
+
+            - id: configure_aws
+              name: Configure AWS Credentials
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                    aws-region: ${{ env.AWS_REGION }}
+
+            - id: login_dockerhub
+              name: Login to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                    username: ${{ secrets.DOCKERHUB_USERNAME }}
+                    password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - id: build_push
+              name: Build and Push Docker Image to Docker Hub
+              run: |
+                    DOCKERHUB_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/scene-mood-api:latest"
+
+                    docker build -f Dockerfile.api -t scene-mood-api .
+                    docker tag scene-mood-api "$DOCKERHUB_IMAGE"
+                    docker push "$DOCKERHUB_IMAGE"
+
+                    echo "image=$DOCKERHUB_IMAGE" >> $GITHUB_OUTPUT
+
+            - id: notify_build
+              name: Notify Discord - Build Complete
+              if: ${{ always() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD }}
+                    content: >
+                            **AWS ECS - Docker Build**
+
+                            **Build Status:** ${{ steps.build_push.outcome == 'success' && 'SUCCESS' || steps.build_push.outcome == 'failure' && 'FAILED' || 'SKIPPED' }}
+
+                            **Image:** `${{ steps.build_push.outputs.image }}`
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+
+            - id: setup_infrastructure
+              name: Setup AWS Infrastructure
+              run: |
+                    # Create CloudWatch log group
+                    aws logs create-log-group --log-group-name "/ecs/${{ env.ECS_TASK_FAMILY }}" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+
+                    # Create ECS cluster if it doesn't exist
+                    CLUSTER_STATUS=$(aws ecs describe-clusters --clusters ${{ env.ECS_CLUSTER }} --region ${{ env.AWS_REGION }} \
+                        --query "clusters[?status=='ACTIVE'].clusterName" --output text 2>/dev/null)
+                    if [ "$CLUSTER_STATUS" != "${{ env.ECS_CLUSTER }}" ]; then
+                        aws ecs create-cluster --cluster-name ${{ env.ECS_CLUSTER }} --region ${{ env.AWS_REGION }}
+                    fi
+
+                    # Get VPC and Subnet
+                    VPC_ID=$(aws ec2 describe-vpcs --filters "Name=isDefault,Values=true" \
+                        --region ${{ env.AWS_REGION }} --query 'Vpcs[0].VpcId' --output text)
+                    SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" \
+                        --region ${{ env.AWS_REGION }} --query 'Subnets[0].SubnetId' --output text)
+
+                    # Create or get Security Group
+                    SG_NAME="ecs-scene-mood-sg"
+                    SG_ID=$(aws ec2 describe-security-groups \
+                        --filters "Name=group-name,Values=$SG_NAME" "Name=vpc-id,Values=$VPC_ID" \
+                        --region ${{ env.AWS_REGION }} --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
+
+                    if [ "$SG_ID" == "None" ] || [ -z "$SG_ID" ]; then
+                        SG_ID=$(aws ec2 create-security-group \
+                            --group-name "$SG_NAME" \
+                            --description "ECS Scene Mood Classifier - GitHub Actions" \
+                            --vpc-id "$VPC_ID" \
+                            --region ${{ env.AWS_REGION }} \
+                            --query 'GroupId' --output text)
+                        aws ec2 authorize-security-group-ingress \
+                            --group-id "$SG_ID" \
+                            --protocol tcp \
+                            --port ${{ env.CONTAINER_PORT }} \
+                            --cidr 0.0.0.0/0 \
+                            --region ${{ env.AWS_REGION }} 2>/dev/null || true
+                    fi
+
+                    # Output for later steps
+                    echo "subnet_id=$SUBNET_ID" >> $GITHUB_OUTPUT
+                    echo "security_group_id=$SG_ID" >> $GITHUB_OUTPUT
+
+            - id: get_execution_role
+              name: Get or Create ECS Execution Role
+              run: |
+                    ROLE_NAME="ecsTaskExecutionRole"
+                    ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text 2>/dev/null || echo "")
+
+                    if [ -z "$ROLE_ARN" ]; then
+                        # Create trust policy
+                        cat > /tmp/trust-policy.json << 'EOF'
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [{
+                            "Effect": "Allow",
+                            "Principal": {"Service": "ecs-tasks.amazonaws.com"},
+                            "Action": "sts:AssumeRole"
+                        }]
+                    }
+                    EOF
+                        aws iam create-role \
+                            --role-name "$ROLE_NAME" \
+                            --assume-role-policy-document file:///tmp/trust-policy.json
+                        aws iam attach-role-policy \
+                            --role-name "$ROLE_NAME" \
+                            --policy-arn "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+                        sleep 10  # Wait for role propagation
+                        ROLE_ARN=$(aws iam get-role --role-name "$ROLE_NAME" --query 'Role.Arn' --output text)
+                    fi
+
+                    echo "role_arn=$ROLE_ARN" >> $GITHUB_OUTPUT
+
+            - id: register_task
+              name: Register ECS Task Definition
+              env:
+                    EXECUTION_ROLE_ARN: ${{ steps.get_execution_role.outputs.role_arn }}
+                    DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/scene-mood-api:latest
+              run: |
+                    cat > /tmp/taskdef.json << EOF
+                    {
+                        "family": "${{ env.ECS_TASK_FAMILY }}",
+                        "networkMode": "awsvpc",
+                        "requiresCompatibilities": ["FARGATE"],
+                        "cpu": "256",
+                        "memory": "512",
+                        "executionRoleArn": "$EXECUTION_ROLE_ARN",
+                        "containerDefinitions": [{
+                            "name": "${{ env.CONTAINER_NAME }}",
+                            "image": "$DOCKERHUB_IMAGE",
+                            "essential": true,
+                            "portMappings": [{
+                                "containerPort": ${{ env.CONTAINER_PORT }},
+                                "protocol": "tcp"
+                            }],
+                            "environment": [
+                                {"name": "HF_TOKEN", "value": "${{ secrets.HF_Token }}"},
+                                {"name": "PORT", "value": "${{ env.CONTAINER_PORT }}"}
+                            ],
+                            "logConfiguration": {
+                                "logDriver": "awslogs",
+                                "options": {
+                                    "awslogs-group": "/ecs/${{ env.ECS_TASK_FAMILY }}",
+                                    "awslogs-region": "${{ env.AWS_REGION }}",
+                                    "awslogs-stream-prefix": "ecs"
+                                }
+                            }
+                        }]
+                    }
+                    EOF
+
+                    TASK_DEF_ARN=$(aws ecs register-task-definition \
+                        --cli-input-json file:///tmp/taskdef.json \
+                        --region ${{ env.AWS_REGION }} \
+                        --query 'taskDefinition.taskDefinitionArn' \
+                        --output text)
+
+                    echo "task_definition_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+
+            - id: deploy_task
+              name: Deploy to ECS Fargate
+              env:
+                    SUBNET_ID: ${{ steps.setup_infrastructure.outputs.subnet_id }}
+                    SECURITY_GROUP_ID: ${{ steps.setup_infrastructure.outputs.security_group_id }}
+              run: |
+                    # Stop existing tasks
+                    EXISTING_TASKS=$(aws ecs list-tasks --cluster ${{ env.ECS_CLUSTER }} --family ${{ env.ECS_TASK_FAMILY }} \
+                        --region ${{ env.AWS_REGION }} --query 'taskArns[]' --output text 2>/dev/null)
+
+                    if [ -n "$EXISTING_TASKS" ] && [ "$EXISTING_TASKS" != "None" ]; then
+                        for task in $EXISTING_TASKS; do
+                            aws ecs stop-task --cluster ${{ env.ECS_CLUSTER }} --task "$task" --region ${{ env.AWS_REGION }} 2>/dev/null || true
+                        done
+                        sleep 10
+                    fi
+
+                    # Run new task
+                    TASK_ARN=$(aws ecs run-task \
+                        --cluster ${{ env.ECS_CLUSTER }} \
+                        --task-definition ${{ env.ECS_TASK_FAMILY }} \
+                        --launch-type FARGATE \
+                        --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_ID],securityGroups=[$SECURITY_GROUP_ID],assignPublicIp=ENABLED}" \
+                        --region ${{ env.AWS_REGION }} \
+                        --query 'tasks[0].taskArn' \
+                        --output text)
+
+                    TASK_ID=$(echo "$TASK_ARN" | awk -F'/' '{print $NF}')
+                    echo "task_id=$TASK_ID" >> $GITHUB_OUTPUT
+                    echo "task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
+
+            - id: get_public_ip
+              name: Wait for Public IP
+              run: |
+                    echo "Waiting 60 seconds for task to start and get public IP..."
+                    sleep 60
+
+                    TASK_ID="${{ steps.deploy_task.outputs.task_id }}"
+
+                    # Get ENI ID
+                    ENI_ID=$(aws ecs describe-tasks \
+                        --cluster ${{ env.ECS_CLUSTER }} \
+                        --tasks "$TASK_ID" \
+                        --region ${{ env.AWS_REGION }} \
+                        --query 'tasks[0].attachments[0].details[?name==`networkInterfaceId`].value' \
+                        --output text)
+
+                    PUBLIC_IP=""
+                    if [ -n "$ENI_ID" ] && [ "$ENI_ID" != "None" ]; then
+                        PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+                            --network-interface-ids "$ENI_ID" \
+                            --region ${{ env.AWS_REGION }} \
+                            --query 'NetworkInterfaces[0].Association.PublicIp' \
+                            --output text)
+                    fi
+
+                    if [ -n "$PUBLIC_IP" ] && [ "$PUBLIC_IP" != "None" ]; then
+                        SERVICE_URL="http://$PUBLIC_IP:${{ env.CONTAINER_PORT }}"
+                        echo "service_url=$SERVICE_URL" >> $GITHUB_OUTPUT
+                        echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+                    else
+                        echo "service_url=pending" >> $GITHUB_OUTPUT
+                        echo "public_ip=pending" >> $GITHUB_OUTPUT
+                    fi
+
+            - id: notify_success
+              name: Notify Discord - Deployment Complete
+              if: ${{ success() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD }}
+                    content: >
+                            **AWS ECS Deployment Complete**
+
+                            **Status:** SUCCESS
+
+                            **Service URL:** ${{ steps.get_public_ip.outputs.service_url }}
+
+                            **Task ID:** `${{ steps.deploy_task.outputs.task_id }}`
+                            **Image:** `scene-mood-api:latest`
+                            **Cluster:** ${{ env.ECS_CLUSTER }}
+                            **Region:** ${{ env.AWS_REGION }}
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+
+            - id: notify_failure
+              name: Notify Discord - Deployment Failed
+              if: ${{ failure() }}
+              uses: tsickert/discord-webhook@v7.0.0
+              with:
+                    webhook-url: ${{ secrets.DISCORD }}
+                    content: >
+                            **AWS ECS Deployment Failed**
+
+                            **Status:** FAILED
+
+                            **Repository:** ${{ github.repository }}
+                            **Branch:** ${{ github.ref_name }}
+                            **Commit:** `${{ github.sha }}`
+                            **Actor:** ${{ github.actor }}
+
+                            **[View Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})**
+
+                            *Please check the workflow logs for details*
